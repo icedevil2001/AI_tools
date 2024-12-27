@@ -1,0 +1,19 @@
+[project]
+name = "local-rag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=0.5.23",
+    "langchain-community>=0.3.13",
+    "ollama>=0.4.4",
+    "pymupdf>=1.25.1",
+    "sentence-transformers>=3.3.1",
+    "streamlit>=1.41.1",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8.4",
+]

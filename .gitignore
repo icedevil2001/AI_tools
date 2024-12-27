@@ -135,6 +135,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.ruff_cache/
 
 # Spyder project settings
 .spyderproject
@@ -169,3 +170,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+demo-rag-chroma/
+local_rag/demo-rag-chroma/*
+*.sqlite3
+
+
