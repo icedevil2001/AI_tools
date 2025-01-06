@@ -1,5 +1,6 @@
 import os 
 import tempfile
+from pathlib import Path
 import yaml
 
 import chromadb 
@@ -14,7 +15,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-
+from loguru import logger
 
 
 def load_config(config_path="config.yaml"):
@@ -30,7 +31,20 @@ def load_config(config_path="config.yaml"):
         return yaml.safe_load(file)
 
 
-def process_document(uploaded_file: UploadedFile) -> list[Document]:
+def load_topics(topics_file="topics.yaml"):
+    """Load topics from a YAML file."""
+    if Path(topics_file).exists():
+        with open(topics_file, "r") as f:
+            return yaml.safe_load(f)
+    return ["General"]  # default topics if file doesn't exist
+
+def save_topics(topics, topics_file="topics.yaml"):
+    """Save topics to a YAML file."""
+    with open(topics_file, "w") as f:
+        yaml.safe_dump(topics, f)
+
+
+def process_document(uploaded_file: UploadedFile, config) -> list[Document]:
     """Processes an uploaded PDF file by converting it to text chunks.
 
     Takes an uploaded PDF file, saves it temporarily, loads and splits the content
@@ -54,19 +68,59 @@ def process_document(uploaded_file: UploadedFile) -> list[Document]:
     os.unlink(temp_file.name)  # Delete temp file
 
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=400,
-        chunk_overlap=100,
-        separators=["\n\n", "\n", ".", "?", "!", " ", ""],
+        chunk_size=config["text_splitter"]["chunk_size"],
+        chunk_overlap=config["text_splitter"]["chunk_overlap"],
+        separators=config["text_splitter"]["separators"],
+        # ["\n\n", "\n", ".", "?", "!", " ", ""],
     )
     return text_splitter.split_documents(docs)
 
 
-def get_vector_collection() -> chromadb.Collection:
+# Based on https://docs.trychroma.com/usage-guide
+
+# import chromadb
+
+# persist_directory = '/tmp/vector_db'
+# client = chromadb.PersistentClient(path=persist_directory)
+
+# collection2 = client.create_collection( \
+#        name="save_embeddings", \
+#        metadata={"hnsw:space": "cosine"} # l2 is the default \
+#    )
+
+# collection2.add( \
+#    embeddings=[[1.1, 2.3, 3.2], [4.5, 6.9, 4.4], [1.1, 2.3, 3.2]], \
+#    metadatas=[{"chapter": "3", "verse": "16"}, {"chapter": "3", "verse": "5"}, {"chapter": "29", "verse": "11"}], \
+#    ids=["id1", "id2", "id3"] \
+# )
+
+# # To query
+# collection2 = client.get_collection(name="save_embeddings")
+
+# collection2.query( \
+#     query_embeddings=[[11.1, 12.1, 13.1]], \
+#     n_results=10, \
+#     # where={"metadata_field": "is_equal_to_this"}, \
+#     # where_document={"$contains":"search_string"} \
+# )
+
+
+
+def get_vector_collection(topic: str) -> chromadb.Collection:
     """Gets or creates a ChromaDB collection for vector storage.
 
     Creates an Ollama embedding function using the nomic-embed-text model and initializes
     a persistent ChromaDB client. Returns a collection that can be used to store and
     query document embeddings.
+    
+    for semantic search. see https://stackoverflow.com/questions/77794024/searching-existing-chromadb-database-using-cosine-similarity 
+    options: 
+        - cosine
+        - euclidean
+        - l2 (square root of the sum of the squares)
+        - ip (inner product)
+
+        for reseach paper use cosine similarity
 
     Returns:
         chromadb.Collection: A ChromaDB collection configured with the Ollama embedding
@@ -77,15 +131,15 @@ def get_vector_collection() -> chromadb.Collection:
         model_name="nomic-embed-text:latest",
     )
 
-    chroma_client = chromadb.PersistentClient(path="./demo-rag-chroma")
+    chroma_client = chromadb.PersistentClient(path="./vector_db")
     return chroma_client.get_or_create_collection(
-        name="rag_app",
+        name=f"rag_{topic}",
         embedding_function=ollama_ef,
-        metadata={"hnsw:space": "cosine"},
+        metadata={"hnsw:space": "cosine"}, # Use cosine similarity for semantic search
     )
 
 
-def add_to_vector_collection(all_splits: list[Document], file_name: str):
+def add_to_vector_collection(all_splits: list[Document], file_name: str, topic: str):
     """Adds document splits to a vector collection for semantic search.
 
     Takes a list of document splits and adds them to a ChromaDB vector collection
@@ -101,7 +155,7 @@ def add_to_vector_collection(all_splits: list[Document], file_name: str):
     Raises:
         ChromaDBError: If there are issues upserting documents to the collection
     """
-    collection = get_vector_collection()
+    collection = get_vector_collection(topic)
     documents, metadatas, ids = [], [], []
 
     for idx, split in enumerate(all_splits):
@@ -120,7 +174,7 @@ def add_to_vector_collection(all_splits: list[Document], file_name: str):
         st.error(f"Failed to add data to the vector store: {e}")
 
 
-def query_collection(prompt: str, n_results: int = 10):
+def query_collection(prompt: str, n_results: int = 10, topic="General") -> dict:
     """Queries the vector collection with a given prompt to retrieve relevant documents.
 
     Args:
@@ -133,7 +187,7 @@ def query_collection(prompt: str, n_results: int = 10):
     Raises:
         ChromaDBError: If there are issues querying the collection.
     """
-    collection = get_vector_collection()
+    collection = get_vector_collection(topic=topic)
     results = collection.query(query_texts=[prompt], n_results=n_results)
     return results
 
@@ -214,20 +268,34 @@ if __name__ == "__main__":
     # st.title("🔍 RAG Question Answering System")
     with st.sidebar:
         st.set_page_config(page_title="RAG Question Answer")
-        uploaded_file = st.file_uploader(
-            "**📑 Upload PDF files for QnA**", type=["pdf"], accept_multiple_files=False
+        uploaded_files = st.file_uploader(
+            "**📑 Upload PDF files for QnA**", type=["pdf"], accept_multiple_files=True
         )
 
         process = st.button(
             "⚡️ Process",
         )
-        if uploaded_file and process:
-            normalize_uploaded_file_name = uploaded_file.name.translate(
-                str.maketrans({"-": "_", ".": "_", " ": "_"})
-            )
-            all_splits = process_document(uploaded_file)
-            add_to_vector_collection(all_splits, normalize_uploaded_file_name)
+        topics = load_topics()
 
+        selected_topic = st.selectbox("Select Topic", topics)
+        new_topic = st.text_input("Or create a new topic").strip().title()
+        if st.button("Add Topic"):
+            topics.append(new_topic)
+            save_topics(topics)
+            st.success(f"'{new_topic}' added!")
+            selected_topic = new_topic
+        
+        if uploaded_files and process:
+            for uploaded_file in uploaded_files:
+                normalize_uploaded_file_name = uploaded_file.name.translate(
+                    str.maketrans({"-": "_", ".": "_", " ": "_"})
+                )
+                all_splits = process_document(uploaded_file, config)
+                add_to_vector_collection(all_splits, normalize_uploaded_file_name, selected_topic)
+
+        num_results = st.number_input("Number of results to show", min_value=1, value=100, step=1)
+
+        
     # Question and Answer Area
     st.header("🗣️ RAG Question Answer")
     prompt = st.text_area("**Ask a question related to your document:**")
@@ -236,7 +304,8 @@ if __name__ == "__main__":
     )
 
     if ask and prompt:
-        results = query_collection(prompt)
+        results = query_collection(prompt, n_results=num_results, topic=selected_topic)
+        print(">>>", results)
         context = results.get("documents")[0]
         relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
         response = call_llm(context=relevant_text, prompt=prompt, system_prompt=SYSTEM_PROMPT, model=MODEL)

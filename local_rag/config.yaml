@@ -22,3 +22,18 @@ system_prompt: |
 
 ollama:
   model: llama3.2
+
+text_splitter:
+  model: "sentence-transformers/bert-base-nli-mean-tokens"
+  threshold: 0.5
+
+  chunk_size: 400
+  chunk_overlap: 100
+  separators: 
+    - "\n\n" 
+    - "\n" 
+    - "." 
+    - "?" 
+    - "!" 
+    - " " 
+    - ""

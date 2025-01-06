@@ -173,5 +173,6 @@ cython_debug/
 demo-rag-chroma/
 local_rag/demo-rag-chroma/*
 *.sqlite3
-
+vector_db/
+html2md
 
