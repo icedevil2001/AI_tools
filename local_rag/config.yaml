@@ -37,3 +37,27 @@ text_splitter:
     - "!" 
     - " " 
     - ""
+
+LLM:
+  ollama:
+    base_url: "http://localhost:11434/v1"
+    models:
+      - "llama3.2"
+    env:
+      api_key: "OPENAI_API_KEY"
+  google:
+    base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+    models:
+      - "gemini-2.0-flash-exp"
+      - "gemini-1.5-flash"
+      - "gemini-1.5-flash-8b"
+    env:
+      api_key: "GEMINI_API_KEY"
+  openai:
+    base_url: "https://api.openai.com/v1" 
+    models:
+      - "gpt-4o"
+      - "gpt-4o-mini"
+    env:
+      api_key: "OPENAI_API_KEY"
+

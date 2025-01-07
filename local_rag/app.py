@@ -16,6 +16,10 @@ from sentence_transformers import CrossEncoder
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from loguru import logger
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def load_config(config_path="config.yaml"):
@@ -42,6 +46,17 @@ def save_topics(topics, topics_file="topics.yaml"):
     """Save topics to a YAML file."""
     with open(topics_file, "w") as f:
         yaml.safe_dump(topics, f)
+
+
+def get_models(config: dict ):
+    """Get a list of available models from config file"""
+    models = {}
+    for company in config["LLM"]:
+        models[company] = {
+            "models": config["LLM"][company]["models"],
+            "base_url": config["LLM"][company]["base_url"]
+            }
+    return models
 
 
 def process_document(uploaded_file: UploadedFile, config) -> list[Document]:
@@ -192,7 +207,7 @@ def query_collection(prompt: str, n_results: int = 10, topic="General") -> dict:
     return results
 
 
-def call_llm(model: str, context: str, prompt: str, system_prompt: str):
+def call_llm(api_key: str, model: str, base_url: str, context: str, prompt: str, system_prompt: str):
     """Calls the language model with context and prompt to generate a response.
 
     Uses Ollama to stream responses from a language model by providing context and a
@@ -208,7 +223,30 @@ def call_llm(model: str, context: str, prompt: str, system_prompt: str):
     Raises:
         OllamaError: If there are issues communicating with the Ollama API
     """
-    response = ollama.chat(
+    # response = ollama.chat(
+    #     model=model,
+    #     stream=True,
+    #     messages=[
+    #         {
+    #             "role": "system",
+    #             "content": system_prompt,
+    #         },
+    #         {
+    #             "role": "user",
+    #             "content": f"Context: {context}, Question: {prompt}",
+    #         },
+    #     ],
+    # )
+    # for chunk in response:
+    #     if chunk["done"] is False:
+    #         yield chunk["message"]["content"]
+    #     else:
+    #         break
+    llm_client = OpenAI(
+        api_key=api_key,
+        base_url=base_url
+        )
+    response = llm_client.chat.completions.create(
         model=model,
         stream=True,
         messages=[
@@ -222,11 +260,13 @@ def call_llm(model: str, context: str, prompt: str, system_prompt: str):
             },
         ],
     )
+    # print(response)
     for chunk in response:
-        if chunk["done"] is False:
-            yield chunk["message"]["content"]
-        else:
+        # print(chunk)
+        if chunk.choices[0].delta.content is None:
             break
+        yield chunk.choices[0].delta.content 
+
 
 
 def re_rank_cross_encoders(documents: list[str]) -> tuple[str, list[int]]:
@@ -277,6 +317,16 @@ if __name__ == "__main__":
         )
         topics = load_topics()
 
+        companies  = get_models(config)
+        selected_company = st.selectbox("AI Company", list(companies.keys()))
+        selected_model = st.selectbox("LLM Model", companies[selected_company]["models"])
+        base_url = companies[selected_company]["base_url"]
+        LLM_API_KEY = os.getenv(config["LLM"][selected_company]['env']["api_key"], None)
+        if not LLM_API_KEY:
+            LLM_API_KEY = st.text_input("LLM API KEY", type='password')
+            st.warning(f"Please set the {config["LLM"][selected_company]['env']["api_key"]} in the environment variable")
+
+
         selected_topic = st.selectbox("Select Topic", topics)
         new_topic = st.text_input("Or create a new topic").strip().title()
         if st.button("Add Topic"):
@@ -308,7 +358,14 @@ if __name__ == "__main__":
         print(">>>", results)
         context = results.get("documents")[0]
         relevant_text, relevant_text_ids = re_rank_cross_encoders(context)
-        response = call_llm(context=relevant_text, prompt=prompt, system_prompt=SYSTEM_PROMPT, model=MODEL)
+        response = call_llm(
+            api_key=LLM_API_KEY,
+            model=selected_model,
+            context=relevant_text, 
+            base_url=base_url, 
+            prompt=prompt, 
+            system_prompt=SYSTEM_PROMPT)
+        
         st.write_stream(response)
 
         with st.expander("See retrieved documents"):

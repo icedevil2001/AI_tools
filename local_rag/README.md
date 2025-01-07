@@ -1,4 +1,4 @@
-# Local RAG Application
+# Local RAG System
 
 This is a Streamlit application that allows you to run the RAG model locally on your machine. 
 
@@ -8,10 +8,28 @@ This is a Streamlit application that allows you to run the RAG model locally on 
     - python >3.10
     - SQLite > 3.35
 
+## Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```bash
+GEMINI_API_KEY=AIXXXXX
+OPENAI_API_KEY=sk-XXXXXXXXXXXX
+OLLAMA_API_KEY=ollama ## any value will work for ollama as it locally runs
+```
+
+## Setup
+
+1. Clone the repository
+2. Install dependencies: `pip install -r requirements.txt`
+3. Create and configure `.env` file as shown above
+4. Start Ollama server
+5. Run the application
+
 ### Ollama models
 After installing Ollama, you can run the following commands to install the required models:
 
-```sh 
+```sh  
 ollama run llama3.2 
 ollama run nomic-embed-text 
 ```

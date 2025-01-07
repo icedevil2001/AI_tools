@@ -26,8 +26,11 @@ setup: # Initial project setup
 	@python3 -m venv $(VENV_DIR)
 	@echo "Installing dependencies..."
 	@source $(VENV_DIR)/bin/activate && pip install -r requirements/requirements-dev.txt && pip install -r requirements/requirements.txt
+	@echo installing ollama 
+	@ollama run llama3.2 
+	@ollama run nomic-embed-text 
 	@echo -e "\n✅ Done.\n🎉 Run the following commands to get started:\n\n ➡️ source $(VENV_DIR)/bin/activate\n ➡️ make run\n"
-
+	
 
 help: # Show this help
 	@egrep -h '\s#\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?# "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

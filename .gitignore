@@ -176,3 +176,4 @@ local_rag/demo-rag-chroma/*
 vector_db/
 html2md
 
+**/.DS_Store
