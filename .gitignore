@@ -177,3 +177,8 @@ vector_db/
 html2md
 
 **/.DS_Store
+*.lock
+*.log
+**/uploads/
+**/audio_cache
+
