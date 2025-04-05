@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio/Video Transcription</title>
+    <!-- Add the Marked library for Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+        }
+        .transcript-container {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .transcript, .summary, .chat-container {
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: left;
+            white-space: pre-line;
+            background-color: #fafafa;
+        }
+        .transcript {
+            min-height: 100px;
+        }
+        .speaker {
+            font-weight: bold;
+            color: #2c5282;
+        }
+        #loading {
+            display: none;
+            margin: 10px 0;
+            color: #e65100;
+            font-weight: bold;
+        }
+        .file-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .audio-player {
+            margin: 20px auto;
+            display: none;
+            max-width: 100%;
+            width: 100%;
+        }
+        .audio-container {
+            margin-top: 20px;
+        }
+        .panel {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .button-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4a6da7;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #3a5a94;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .summary-title, .chat-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .summary-content {
+            margin-top: 10px;
+        }
+        .chat-container {
+            display: block; /* Changed from none to block */
+            padding: 10px;
+        }
+        .chat-messages {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-input input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e6f3ff;
+            text-align: right;
+        }
+        .ai-message {
+            background-color: #f0f0f0;
+        }
+        /* Changed this - section-hidden now uses visibility for debugging */
+        .section-hidden {
+            display: block;
+            opacity: 0.3;
+            border: 1px dashed red;
+        }
+        /* Add debug panel */
+        .debug-panel {
+            margin-top: 30px;
+            padding: 10px;
+            border: 2px dotted #ff6b6b;
+            background-color: #fff8e1;
+        }
+        /* Cost tracker styles */
+        .cost-tracker {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 250px;
+            z-index: 1000;
+        }
+        .cost-header {
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .cost-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .cost-total {
+            font-weight: bold;
+            margin-top: 10px;
+            border-top: 1px solid #ddd;
+            padding-top: 5px;
+        }
+        .minimize-btn {
+            cursor: pointer;
+            color: #666;
+        }
+        .cost-content {
+            display: block;
+        }
+        .cost-content.minimized {
+            display: none;
+        }
+        /* Rate limit indicator styles */
+        .rate-limit-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 250px;
+            z-index: 1000;
+        }
+        .rate-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .rate-status-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-green {
+            background-color: #28a745;
+        }
+        .status-yellow {
+            background-color: #ffc107;
+        }
+        .status-red {
+            background-color: #dc3545;
+        }
+        .cooldown-message {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .rate-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #666;
+        }
+        .rate-bar-container {
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            margin: 2px 0 8px 0;
+        }
+        .rate-bar {
+            height: 100%;
+            border-radius: 4px;
+            background-color: #4a6da7;
+        }
+        /* Add these styles for Markdown rendering */
+        .summary h2 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #2c5282;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+        
+        .summary ul {
+            padding-left: 20px;
+        }
+        
+        .summary li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Audio/Video Transcription with Speaker Detection</h1>
+        <p>Upload an audio or video file to transcribe with speaker identification</p>
+        
+        <div class="panel">
+            <form id="uploadForm">
+                <input type="file" id="fileInput" accept=".mp3,.mp4,.wav,.m4a" required>
+                <button type="submit">Transcribe</button>
+            </form>
+            <div class="file-info">Supported formats: MP3, M4A, WAV, MP4</div>
+            
+            <div class="audio-container">
+                <audio id="audioPlayer" class="audio-player" controls>
+                    Your browser does not support the audio element.
+                </audio>
+            </div>
+        </div>
+        
+        <div id="loading">Processing... This may take a while for longer files</div>
+        
+        <div class="transcript-container">
+            <!-- Transcript section -->
+            <div id="transcriptSection">
+                <h2>Transcript</h2>
+                <div id="transcript" class="transcript">
+                    <!-- Transcript will appear here -->
+                    <em>No transcript yet. Upload a file and click "Transcribe".</em>
+                </div>
+                
+                <div class="button-container">
+                    <button id="summarizeBtn">Generate Summary</button>
+                    <button id="askQuestionsBtn">Ask Questions</button>
+                </div>
+            </div>
+            
+            <!-- Summary section -->
+            <div id="summarySection">
+                <h2>Summary</h2>
+                <div id="summaryLoading">Generating summary...</div>
+                <div id="summary" class="summary">
+                    <!-- Summary will appear here -->
+                </div>
+            </div>
+            
+            <!-- Chat/Q&A section -->
+            <div id="chatSection">
+                <h2>Ask Questions About the Transcript</h2>
+                <div class="chat-container">
+                    <div id="chatMessages" class="chat-messages">
+                        <!-- Chat messages will appear here -->
+                        <div class="message ai-message">
+                            Ask me questions about the transcript!
+                        </div>
+                    </div>
+                    <div class="chat-input">
+                        <input type="text" id="questionInput" placeholder="Ask a question about the transcript...">
+                        <button id="sendQuestionBtn">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Debug Panel (will be hidden in production) -->
+        <div class="debug-panel">
+            <h3>Debug Information</h3>
+            <div id="debugInfo">Status: Waiting for user action</div>
+        </div>
+    </div>
+
+    <!-- Cost Tracker -->
+    <div class="cost-tracker" id="costTracker">
+        <div class="cost-header">
+            <span>API Usage Costs</span>
+            <span class="minimize-btn" id="minimizeBtn">−</span>
+        </div>
+        <div class="cost-content" id="costContent">
+            <div class="cost-detail">
+                <span>Total Tokens:</span>
+                <span id="totalTokens">0</span>
+            </div>
+            <div class="cost-detail">
+                <span>Transcription:</span>
+                <span id="transcriptionRequests">0 requests</span>
+            </div>
+            <div class="cost-detail">
+                <span>Summaries:</span>
+                <span id="summaryRequests">0 requests</span>
+            </div>
+            <div class="cost-detail">
+                <span>Q&A:</span>
+                <span id="qaRequests">0 requests</span>
+            </div>
+            <div class="cost-total">
+                <span>Total Cost:</span>
+                <span id="totalCost">$0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rate Limit Indicator -->
+    <div class="rate-limit-indicator" id="rateLimitIndicator">
+        <div class="cost-header">
+            <span>API Rate Limits</span>
+            <span class="minimize-btn" id="minimizeRateBtn">−</span>
+        </div>
+        <div class="cost-content" id="rateLimitContent">
+            <div id="transcriptionRate">
+                <div class="rate-status">
+                    <div class="rate-status-light status-green" id="transcriptionLight"></div>
+                    <span>Transcription</span>
+                </div>
+                <div class="rate-bar-container">
+                    <div class="rate-bar" id="transcriptionBar" style="width: 0%"></div>
+                </div>
+                <div class="rate-labels">
+                    <span>0</span>
+                    <span id="transcriptionLimit">10/min</span>
+                </div>
+            </div>
+            
+            <div id="summaryRate">
+                <div class="rate-status">
+                    <div class="rate-status-light status-green" id="summaryLight"></div>
+                    <span>Summary</span>
+                </div>
+                <div class="rate-bar-container">
+                    <div class="rate-bar" id="summaryBar" style="width: 0%"></div>
+                </div>
+                <div class="rate-labels">
+                    <span>0</span>
+                    <span id="summaryLimit">10/min</span>
+                </div>
+            </div>
+            
+            <div id="qaRate">
+                <div class="rate-status">
+                    <div class="rate-status-light status-green" id="qaLight"></div>
+                    <span>Q&A</span>
+                </div>
+                <div class="rate-bar-container">
+                    <div class="rate-bar" id="qaBar" style="width: 0%"></div>
+                </div>
+                <div class="rate-labels">
+                    <span>0</span>
+                    <span id="qaLimit">10/min</span>
+                </div>
+            </div>
+            
+            <div class="cooldown-message" id="cooldownMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Debug function
+        function debug(message) {
+            console.log(message);
+            document.getElementById('debugInfo').textContent = "Status: " + message;
+        }
+        
+        const fileInput = document.getElementById('fileInput');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const loading = document.getElementById('loading');
+        const transcript = document.getElementById('transcript');
+        const summaryBtn = document.getElementById('summarizeBtn');
+        const askQuestionsBtn = document.getElementById('askQuestionsBtn');
+        const summarySection = document.getElementById('summarySection');
+        const summaryContent = document.getElementById('summary');
+        const summaryLoading = document.getElementById('summaryLoading');
+        const chatSection = document.getElementById('chatSection');
+        const chatMessages = document.getElementById('chatMessages');
+        const questionInput = document.getElementById('questionInput');
+        const sendQuestionBtn = document.getElementById('sendQuestionBtn');
+        const transcriptSection = document.getElementById('transcriptSection');
+        
+        debug("Page loaded successfully");
+        
+        // Store session info
+        let currentSessionId = null;
+        let currentTranscript = null;
+        
+        // Show audio player when a file is selected
+        fileInput.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                const fileURL = URL.createObjectURL(file);
+                debug(`File selected: ${file.name} (${file.type})`);
+                
+                // MP4 files need to be handled differently
+                if (file.name.toLowerCase().endsWith('.mp4')) {
+                    audioPlayer.style.display = 'none';
+                    debug("MP4 file detected - audio player hidden");
+                } else {
+                    audioPlayer.src = fileURL;
+                    audioPlayer.style.display = 'block';
+                    debug("Audio file loaded into player");
+                }
+            }
+        });
+
+        // Handle transcription form submission
+        document.getElementById('uploadForm').onsubmit = async (e) => {
+            e.preventDefault();
+            debug("Form submitted - beginning transcription process");
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            loading.style.display = 'block';
+            transcript.innerHTML = '<em>Transcribing audio...</em>';
+
+            try {
+                debug("Sending file to server...");
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                debug("Response received from server");
+                const data = await response.json();
+                
+                if (data.error) {
+                    if (data.error.includes('Rate limit')) {
+                        transcript.innerHTML = `<p style="color: #dc3545;">Rate limit reached. Please wait a moment and try again.</p>`;
+                        debug(`Rate limit error: ${data.error}`);
+                        updateRateLimits(); // Update rate limits immediately
+                    } else {
+                        transcript.textContent = `Error: ${data.error}`;
+                        debug(`Error occurred: ${data.error}`);
+                    }
+                } else {
+                    // Store session data
+                    currentSessionId = data.sessionId;
+                    currentTranscript = data.transcript;
+                    debug(`Transcript received, session ID: ${currentSessionId}`);
+                    
+                    // Format the transcript with speaker highlighting
+                    const formattedText = data.transcript.replace(
+                        /(Speaker \d+):/g, 
+                        '<span class="speaker">$1:</span>'
+                    );
+                    transcript.innerHTML = formattedText || "No transcript content returned";
+                    
+                    // If there's a temporary file URL for playback
+                    if (data.audioUrl) {
+                        audioPlayer.src = data.audioUrl;
+                        audioPlayer.style.display = 'block';
+                        debug(`Audio URL loaded: ${data.audioUrl}`);
+                    }
+                    
+                    // Update cost information after transcription
+                    setTimeout(updateCostInfo, 500);
+                }
+                
+                // Update rate limits after any API call
+                setTimeout(updateRateLimits, 500);
+            } catch (error) {
+                transcript.textContent = `Error: ${error.message}`;
+                debug(`Fetch error: ${error.message}`);
+            } finally {
+                loading.style.display = 'none';
+            }
+        };
+        
+        // Generate summary when button is clicked
+        summarizeBtn.addEventListener('click', async () => {
+            if (!currentTranscript) {
+                debug("No transcript available for summary");
+                return;
+            }
+            
+            debug("Generating summary...");
+            summaryLoading.style.display = 'block';
+            summaryContent.innerHTML = 'Generating summary...';
+            
+            try {
+                const response = await fetch('/summarize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ transcript: currentTranscript })
+                });
+                
+                debug("Summary response received");
+                const data = await response.json();
+                
+                if (data.error) {
+                    if (data.error.includes('Rate limit')) {
+                        summaryContent.innerHTML = `<p style="color: #dc3545;">Rate limit reached. Please wait a moment and try again.</p>`;
+                        debug(`Rate limit error: ${data.error}`);
+                        updateRateLimits(); // Update rate limits immediately
+                    } else {
+                        summaryContent.innerHTML = `<p style="color: #d32f2f;">Error: ${data.error}</p>`;
+                        debug(`Summary error: ${data.error}`);
+                    }
+                } else if (data.summary && data.summary.includes("error")) {
+                    // Format error message with red text
+                    summaryContent.innerHTML = `<p style="color: #d32f2f;">${data.summary}</p>`;
+                    debug(`Summary generation had errors: ${data.summary}`);
+                } else {
+                    // Use marked.js to render Markdown as HTML
+                    if (window.marked) {
+                        try {
+                            summaryContent.innerHTML = marked.parse(data.summary || "No summary content returned");
+                            debug("Summary rendered with Markdown formatting");
+                        } catch (renderError) {
+                            // Fallback if markdown rendering fails
+                            console.error("Error rendering markdown:", renderError);
+                            summaryContent.innerHTML = data.summary || "No summary content returned";
+                            debug("Summary generated but failed to render markdown");
+                        }
+                    } else {
+                        // Fallback if marked.js isn't available
+                        summaryContent.innerHTML = data.summary || "No summary content returned";
+                        debug("Summary generated (without markdown support)");
+                    }
+                }
+                
+                // Update cost information after summary generation
+                setTimeout(updateCostInfo, 500);
+                
+                // Update rate limits after any API call
+                setTimeout(updateRateLimits, 500);
+            } catch (error) {
+                summaryContent.innerHTML = `<p style="color: #d32f2f;">Error generating summary: ${error.message}</p>`;
+                debug(`Summary fetch error: ${error.message}`);
+            } finally {
+                summaryLoading.style.display = 'none';
+            }
+        });
+        
+        // Show Q&A section when button is clicked
+        askQuestionsBtn.addEventListener('click', () => {
+            debug("Q&A section activated");
+            // No need to change display style - already visible for debugging
+        });
+        
+        // Send a question
+        sendQuestionBtn.addEventListener('click', sendQuestion);
+        questionInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendQuestion();
+        });
+        
+        // Function to send a question
+        async function sendQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) {
+                debug("Empty question - not sending");
+                return;
+            }
+            
+            if (!currentSessionId) {
+                debug("No session ID available - cannot send question");
+                addMessage("Please transcribe an audio file first before asking questions.", "ai");
+                return;
+            }
+            
+            debug(`Sending question: ${question}`);
+            
+            // Add user message to chat
+            addMessage(question, 'user');
+            questionInput.value = '';
+            
+            try {
+                const response = await fetch('/ask_question', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        sessionId: currentSessionId,
+                        transcript: currentTranscript // Fallback if session storage fails
+                    })
+                });
+                
+                debug("Question response received");
+                const data = await response.json();
+                
+                if (data.error) {
+                    if (data.error.includes('Rate limit')) {
+                        addMessage(`Rate limit reached. Please wait a moment and try again.`, 'ai');
+                        debug(`Rate limit error: ${data.error}`);
+                        updateRateLimits(); // Update rate limits immediately
+                    } else {
+                        addMessage(`Error: ${data.error}`, 'ai');
+                        debug(`Question error: ${data.error}`);
+                    }
+                } else if (data.answer && data.answer.includes("Error")) {
+                    addMessage(`${data.answer}`, 'ai');
+                    debug(`Question answering had errors: ${data.answer}`);
+                } else {
+                    addMessage(data.answer || "No answer received", 'ai');
+                    debug("Question answered successfully");
+                }
+                
+                // Update cost information after question answering
+                setTimeout(updateCostInfo, 500);
+                
+                // Update rate limits after any API call
+                setTimeout(updateRateLimits, 500);
+            } catch (error) {
+                addMessage(`Error: ${error.message}`, 'ai');
+                debug(`Question fetch error: ${error.message}`);
+            }
+        }
+        
+        // Add a message to the chat interface
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = text;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            debug(`Added ${sender} message to chat`);
+        }
+        
+        // Cost tracker variables
+        let costMinimized = false;
+        const minimizeBtn = document.getElementById('minimizeBtn');
+        const costContent = document.getElementById('costContent');
+        
+        // Toggle cost tracker minimization
+        minimizeBtn.addEventListener('click', () => {
+            costMinimized = !costMinimized;
+            if (costMinimized) {
+                costContent.classList.add('minimized');
+                minimizeBtn.textContent = '+';
+            } else {
+                costContent.classList.remove('minimized');
+                minimizeBtn.textContent = '−';
+            }
+        });
+        
+        // Update cost information
+        async function updateCostInfo() {
+            if (!currentSessionId) return;
+            
+            try {
+                const response = await fetch(`/cost/${currentSessionId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error("Error fetching cost data:", data.error);
+                    return;
+                }
+                
+                // Count request types
+                let transcriptionCount = 0;
+                let summaryCount = 0;
+                let qaCount = 0;
+                
+                data.requests.forEach(req => {
+                    if (req.request_type === "transcription") transcriptionCount++;
+                    else if (req.model === SUMMARY_MODEL) summaryCount++;
+                    else qaCount++;
+                });
+                
+                // Update the UI
+                document.getElementById('totalTokens').textContent = data.total_tokens.toLocaleString();
+                document.getElementById('transcriptionRequests').textContent = `${transcriptionCount} requests`;
+                document.getElementById('summaryRequests').textContent = `${summaryCount} requests`;
+                document.getElementById('qaRequests').textContent = `${qaCount} requests`;
+                document.getElementById('totalCost').textContent = `$${data.total_cost.toFixed(6)}`;
+                
+                debug(`Updated cost info: ${data.total_tokens} tokens, $${data.total_cost.toFixed(6)}`);
+            } catch (error) {
+                console.error("Error updating cost information:", error);
+                debug(`Error updating cost information: ${error.message}`);
+            }
+        }
+
+        // Rate limit variables
+        let rateLimitMinimized = false;
+        const minimizeRateBtn = document.getElementById('minimizeRateBtn');
+        const rateLimitContent = document.getElementById('rateLimitContent');
+        
+        // Toggle rate limit indicator minimization
+        minimizeRateBtn.addEventListener('click', () => {
+            rateLimitMinimized = !rateLimitMinimized;
+            if (rateLimitMinimized) {
+                rateLimitContent.classList.add('minimized');
+                minimizeRateBtn.textContent = '+';
+            } else {
+                rateLimitContent.classList.remove('minimized');
+                minimizeRateBtn.textContent = '−';
+            }
+        });
+        
+        // Update rate limit indicators
+        async function updateRateLimits() {
+            try {
+                const response = await fetch('/rate_limits');
+                const data = await response.json();
+                
+                // Update transcription rate
+                updateRateIndicator(
+                    'transcription',
+                    data[TRANSCRIPTION_MODEL].status,
+                    data[TRANSCRIPTION_MODEL].requests_made, 
+                    data[TRANSCRIPTION_MODEL].limit,
+                    data[TRANSCRIPTION_MODEL].remaining_seconds
+                );
+                
+                // Update summary rate
+                updateRateIndicator(
+                    'summary',
+                    data[SUMMARY_MODEL].status,
+                    data[SUMMARY_MODEL].requests_made, 
+                    data[SUMMARY_MODEL].limit,
+                    data[SUMMARY_MODEL].remaining_seconds
+                );
+                
+                // Update QA rate
+                updateRateIndicator(
+                    'qa',
+                    data[QnA_MODEL].status,
+                    data[QnA_MODEL].requests_made, 
+                    data[QnA_MODEL].limit,
+                    data[QnA_MODEL].remaining_seconds
+                );
+                
+                // Check for cooldown messages
+                let cooldownMsg = '';
+                if (data[TRANSCRIPTION_MODEL].status === 'cooldown') {
+                    cooldownMsg += `Transcription: ${data[TRANSCRIPTION_MODEL].remaining_seconds}s cooldown\n`;
+                }
+                if (data[SUMMARY_MODEL].status === 'cooldown') {
+                    cooldownMsg += `Summary: ${data[SUMMARY_MODEL].remaining_seconds}s cooldown\n`;
+                }
+                if (data[QnA_MODEL].status === 'cooldown') {
+                    cooldownMsg += `Q&A: ${data[QnA_MODEL].remaining_seconds}s cooldown\n`;
+                }
+                
+                document.getElementById('cooldownMessage').textContent = cooldownMsg;
+                
+                // Schedule the next update if there are active cooldowns
+                if (cooldownMsg) {
+                    setTimeout(updateRateLimits, 1000);
+                }
+                
+            } catch (error) {
+                console.error("Error updating rate limits:", error);
+                debug(`Error updating rate limits: ${error.message}`);
+            }
+        }
+        
+        function updateRateIndicator(type, status, requestsMade, limit, remainingSeconds) {
+            const light = document.getElementById(`${type}Light`);
+            const bar = document.getElementById(`${type}Bar`);
+            const limitText = document.getElementById(`${type}Limit`);
+            
+            // Update limit text
+            limitText.textContent = `${limit}/min`;
+            
+            if (status === 'cooldown') {
+                // Red status (in cooldown)
+                light.className = 'rate-status-light status-red';
+                bar.style.width = '100%';
+                bar.style.backgroundColor = '#dc3545';
+            } else {
+                // Calculate percentage
+                const percentage = (requestsMade / limit) * 100;
+                bar.style.width = `${percentage}%`;
+                
+                if (percentage >= 80) {
+                    // Yellow status (warning)
+                    light.className = 'rate-status-light status-yellow';
+                    bar.style.backgroundColor = '#ffc107';
+                } else {
+                    // Green status (good)
+                    light.className = 'rate-status-light status-green';
+                    bar.style.backgroundColor = '#4a6da7';
+                }
+            }
+        }
+        
+        // Initial rate limit update and then schedule periodic updates
+        updateRateLimits();
+        setInterval(updateRateLimits, 10000); // Update every 10 seconds
+        
+        // Set constants for model names that match the backend
+        const TRANSCRIPTION_MODEL = "gemini-2.0-flash";
+        const SUMMARY_MODEL = "gemini-2.0-flash";
+        const QnA_MODEL = "gemini-2.0-flash";
+    </script>
+</body>
+</html>
