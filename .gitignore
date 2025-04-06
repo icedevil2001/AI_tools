@@ -181,4 +181,5 @@ html2md
 *.log
 **/uploads/
 **/audio_cache
+**/db_backup/*
 
