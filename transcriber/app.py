@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory, session
+from flask import Flask, render_template, request, jsonify, send_from_directory, session, redirect, url_for, flash
 import os
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -14,7 +14,10 @@ import re
 import time
 from functools import wraps
 import hashlib
-
+from pathlib  import Path 
+import user_auth
+from pymongo import MongoClient    # (if not already imported)
+import datetime
 
 # Try to import required packages with informative errors
 try:
@@ -43,7 +46,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger('transcriber')
 
-load_dotenv()
+dotenv_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=dotenv_path)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
@@ -51,8 +55,20 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['AUDIO_CACHE'] = 'audio_cache'
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # Increased to 32MB max-limit
 
+# Initialize session config with more secure settings
+app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # 24 hours in seconds
+app.config['SESSION_TYPE'] = 'filesystem'
+# Disable secure cookie for local development (enable in production with HTTPS)
+app.config['SESSION_COOKIE_SECURE'] = False  # Changed from True to False for local development
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Initialize the database
+user_auth.init_db(app)
+
 # Configure Gemini API with latest client pattern
 api_key = os.environ.get('GOOGLE_API_KEY')
+print(api_key)
 if not api_key:
     logger.error("NO API KEY FOUND! Make sure GOOGLE_API_KEY is set in your .env file")
 else:
@@ -113,6 +129,24 @@ class CostTracker:
 
 # Track costs by session
 session_costs = {}
+
+
+def get_token_from_response(response):
+    """Extract token usage from the response"""
+
+    if hasattr(response, 'usage_metadata'):
+        result =  {
+            "total_token_count": response.usage_metadata.total_token_count, 
+            "prompt_tokens": response.usage_metadata.prompt_token_count, 
+            "response_tokens": response.usage_metadata.candidates_token_count, 
+            # "model_version": getattr(response.candidates, 'model_version', 'unknown') if hasattr(response, 'candidates') else 'unknown'
+            }
+        logger.info(f"Token usage: {result}")
+        return result
+    elif hasattr(response, 'metadata'):
+        return response.metadata.total_token_count
+    else:
+        raise ValueError("Response does not contain token usage metadata")
 
 # Estimate tokens in text
 def estimate_tokens(text):
@@ -400,13 +434,15 @@ def transcribe_audio(audio_path):
                         ]}
                     ]
                 )
-                
+                # print(f">>> {response}")
                 # Track token usage and cost
                 # Rough estimation of prompt tokens
-                prompt_tokens = estimate_tokens(prompt)
-                # Rough estimation of response tokens
-                response_tokens = estimate_tokens(response.text)
-                total_tokens = prompt_tokens + response_tokens
+                # prompt_tokens = estimate_tokens(prompt)
+                # # Rough estimation of response tokens
+                # response_tokens = estimate_tokens(response.text)
+                # total_tokens = prompt_tokens + response_tokens
+                token_usage = get_token_from_response(response)
+                total_tokens = token_usage["total_token_count"]
                 
                 # Get or create session cost tracker
                 session_id = request.environ.get('HTTP_X_SESSION_ID')
@@ -423,7 +459,10 @@ def transcribe_audio(audio_path):
                 # Clean up segment file
                 os.remove(segment_path)
             
-            return "\n".join(full_transcript)
+            return {
+                "transcript": "\n".join(full_transcript),
+                "token_usage": token_usage
+                }
         else:
             # Single audio file processing with speaker detection request
             with open(audio_path, 'rb') as audio_file:
@@ -449,10 +488,12 @@ def transcribe_audio(audio_path):
                 ]
             )
             
-            # Track token usage and cost
-            prompt_tokens = estimate_tokens(prompt)
-            response_tokens = estimate_tokens(response.text)
-            total_tokens = prompt_tokens + response_tokens
+            # # Track token usage and cost
+            # prompt_tokens = estimate_tokens(prompt)
+            # response_tokens = estimate_tokens(response.text)
+            # total_tokens = prompt_tokens + response_tokens
+            token_usage = get_token_from_response(response)
+            total_tokens = token_usage["total_token_count"]
             
             # Get or create session cost tracker
             session_id = request.environ.get('HTTP_X_SESSION_ID')
@@ -463,7 +504,10 @@ def transcribe_audio(audio_path):
                 session_costs[session_id].add_request(
                     "transcription", total_tokens, TRANSCRIPTION_MODEL)
             
-            return response.text
+            return {
+                "transcript": response.text, 
+                "token_usage": token_usage
+                }
     except Exception as e:
         print(f"Transcription error: {str(e)}")
         return f"Error during transcription: {str(e)}"
@@ -472,24 +516,36 @@ def generate_summary(transcript):
     """Generate a summary of the transcript using Gemini API."""
     try:
         prompt = f"""
-        Please provide a concise summary of the following transcript.
-        Focus on the key points, main topics discussed, and any important conclusions.
+        Please provide a detailed and comprehensive summary of the following transcript.
+        Ensure that all key points, main topics discussed, and important conclusions are covered thoroughly.
+        Highlight any significant details, decisions, or insights shared during the conversation.
+
+        Additionally, create a descriptive and engaging title for the summary that captures the essence of the discussion.
 
         Format your response in Markdown style using the following layout:
         
+        # [Title]
+
+        
         ## Summary
-        A brief summary of the overall conversation.
-    
+        Provide a detailed and structured summary of the entire conversation, covering all key aspects and topics discussed.
+
         ## Main Takeaways
-        - Key Point 1
-        - Key Point 2
-        - Key Point 3
-        
+        - Highlight the most important points or conclusions drawn during the discussion.
+        - Ensure each takeaway is clear and concise.
+
+        ## Key Insights
+        - Include any unique or noteworthy insights shared during the conversation.
+        - Provide context for why these insights are significant.
+
         ## Action Items
-        - Action Item 1
-        - Action Item 2
-        
-        Use bullet points for better readability. Make sure the output is valid Markdown format.
+        - List all actionable steps or decisions made during the discussion.
+        - Ensure each action item is specific and clearly defined.
+
+        ## Additional Notes
+        - Include any other relevant information or observations that may be useful for future reference.
+
+        Use bullet points and headings for better readability. Ensure the output is valid Markdown format.
 
         Transcript:
         {transcript}
@@ -502,10 +558,20 @@ def generate_summary(transcript):
             contents=[{"role": "user", "parts": [{"text": prompt}]}]
         )
         
+        # print(f">>> Summary: {response}")
+        # print(dir(response))
+
         # Track token usage and cost
-        prompt_tokens = estimate_tokens(prompt)
-        response_tokens = estimate_tokens(response.text)
-        total_tokens = prompt_tokens + response_tokens
+        # prompt_tokens = estimate_tokens(prompt)
+        # response_tokens = estimate_tokens(response.text)
+        # print(f' usage_metadata: {response.usage_metadata}')
+        # prompt_tokens = response.usage_metadata.prompt_token_count
+        # print(f' prompt_tokens: {prompt_tokens}')
+        # response_tokens = response.usage_metadata.candidates_token_count
+        # print(f' response_tokens: {response_tokens}')
+        # total_tokens = prompt_tokens + response_tokens
+        token_usage = get_token_from_response(response)
+        total_tokens = token_usage["total_token_count"]
         
         # Get or create session cost tracker
         session_id = request.environ.get('HTTP_X_SESSION_ID')
@@ -516,7 +582,9 @@ def generate_summary(transcript):
             session_costs[session_id].add_request(
                 "text", total_tokens, SUMMARY_MODEL)
         
-        return response.text
+        return {'summary': response.text, 
+                'token_usage': token_usage
+                }
     except Exception as e:
         print(f"Summary generation error: {str(e)}")
         return f"Could not generate summary due to an error: {str(e)}"
@@ -544,9 +612,11 @@ def answer_question(transcript, question):
         )
         
         # Track token usage and cost
-        prompt_tokens = estimate_tokens(prompt)
-        response_tokens = estimate_tokens(response.text)
-        total_tokens = prompt_tokens + response_tokens
+        # prompt_tokens = estimate_tokens(prompt)
+        # response_tokens = estimate_tokens(response.text)
+        # total_tokens = prompt_tokens + response_tokens
+        token_usage = get_token_from_response(response)
+        total_tokens = token_usage["total_token_count"]
         
         # Get or create session cost tracker
         session_id = request.environ.get('HTTP_X_SESSION_ID')
@@ -557,14 +627,21 @@ def answer_question(transcript, question):
             session_costs[session_id].add_request(
                 "text", total_tokens, QnA_MODEL)
         
-        return response.text
+        return {"response": response.text,
+                "token_usage": token_usage
+                }
+
     except Exception as e:
         print(f"Question answering error: {str(e)}")
         return f"Error processing your question: {str(e)}"
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Check if user is logged in
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    return render_template('index.html', username=session.get('username'))
 
 @app.route('/audio/<filename>')
 def serve_audio(filename):
@@ -598,8 +675,35 @@ def generate_cache_filename(file_obj, filename):
     hash_hex = hasher.hexdigest()
     return f"{hash_hex}_{filename}"
 
+# NEW: helper function to record each API call
+def record_api_call(user_id, request_type, total_token_count, prompt_tokens, response_tokens, model_version):
+    """Record an API call with token usage and cost into a new collection."""
+    call_doc = {
+        "user_id": user_id,
+        "request_type": request_type,
+        "total_token_count": total_token_count,
+        "prompt_tokens": prompt_tokens,
+        "response_tokens": response_tokens,
+        "model_version": model_version,
+        "datetime": datetime.datetime.utcnow()
+    }
+    db = app.config.get("MONGO_DB")
+    # FIX: Compare explicitly with None
+    if db is not None:
+        db.api_calls.insert_one(call_doc)
+        logger.debug(f"API call recorded: {call_doc}")
+    else:
+        # Fallback if using a global client
+        client = MongoClient()  # Adjust the connection if necessary
+        client.transcriber_db.api_calls.insert_one(call_doc)
+        logger.debug(f"Fallback API call recorded: {call_doc}")
+
 @app.route('/transcribe', methods=['POST'])
 def transcribe():
+    # Add user verification
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
+        
     logger.info("Transcribe endpoint called")
     if 'file' not in request.files:
         logger.warning("No file uploaded")
@@ -650,7 +754,9 @@ def transcribe():
             audio_url = f"/audio/{audio_cache_filename}"
             logger.info(f"Audio cached at: {audio_url}")
             
-            transcript = transcribe_audio(audio_path)
+            response = transcribe_audio(audio_path)
+            transcript = response['transcript']
+            usage_metadata = response['token_usage']
             os.remove(audio_path)
         else:
             # Copy the file to cache for playback
@@ -658,8 +764,9 @@ def transcribe():
             audio_url = f"/audio/{cache_filename}"
             logger.info(f"Audio cached at: {audio_url}")
             
-            transcript = transcribe_audio(filepath)
-
+            response = transcribe_audio(filepath)
+            transcript = response['transcript']
+            usage_metadata = response['token_usage']
         logger.info("Transcription completed successfully")
         
         # Clean up original upload
@@ -679,9 +786,33 @@ def transcribe():
         response = jsonify({
             'transcript': transcript,
             'audioUrl': audio_url,
-            'sessionId': session_id
+            'sessionId': session_id,
+            'user_id': session.get('user_id')  # Add user ID
         })
         
+        # When saving transcript data, also save to user's collection
+        if 'user_id' in session:
+            transcript_data = {
+                'transcript': transcript,
+                'audioUrl': audio_url,
+                'summary': '',  # Initialize with empty summary
+                'transcript_id': session_id,  # Use the same session_id as transcript_id for consistency
+                "api_cost": session_costs[session_id].total_cost,
+                "total_token_count": session_costs[session_id].total_tokens,
+                "prompt_tokens": 0,  # Placeholder, update with actual prompt tokens
+                "response_tokens": 0,  # Placeholder, update with actual response tokens
+                "model_version": TRANSCRIPTION_MODEL
+            }
+            transcript_data.update(usage_metadata)
+            user_auth.save_user_transcript(session['user_id'], transcript_data)
+            # Record API call details in new collection (for tracking over all users)
+            # record_api_call(session['user_id'], "transcription", session_costs[session_id].total_tokens, 0, 0, TRANSCRIPTION_MODEL)
+            record_api_call(session['user_id'], "transcription",
+                usage_metadata['total_token_count'],
+                usage_metadata['prompt_tokens'],
+                usage_metadata['response_tokens'],
+                TRANSCRIPTION_MODEL
+            )
         return response
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
@@ -714,6 +845,8 @@ def cleanup_cache():
 def summarize():
     """Generate a summary of the transcript."""
     logger.info("Summarize endpoint called")
+    if 'user_id' not in session:
+        return jsonify({'error': 'Authentication required'}), 401
     data = request.json
     if not data or 'transcript' not in data:
         logger.warning("No transcript provided for summarization")
@@ -721,8 +854,74 @@ def summarize():
     
     transcript = data['transcript']
     logger.info(f"Generating summary for transcript of length: {len(transcript)}")
-    summary = generate_summary(transcript)
+    response = generate_summary(transcript)
+    summary = response['summary']
+    usage_metadata = response['token_usage']
+    logger.info(f"Summary generated with token usage: {usage_metadata}")
+    title = summary.split('\n')[0].replace('# ', '') if summary else "No title generated"
+    logger.info(f"Generated summary title: {title}")
     logger.info("Summary generated successfully")
+    
+    record_api_call(session['user_id'], "summarization",
+                usage_metadata['total_token_count'],
+                usage_metadata['prompt_tokens'],
+                usage_metadata['response_tokens'],
+                SUMMARY_MODEL
+            )
+    # Check if user is logged in and session ID is provided
+    if 'user_id' in session and 'sessionId' in data:
+        session_id = data['sessionId']
+        user_id = session.get('user_id')
+        
+        try:
+            # Update the transcript document with the summary
+            result = user_auth.transcripts_collection.update_one(
+                {
+                    'user_id': user_id,
+                    'transcript_id': session_id,
+                    "title": title
+                },
+                {
+                    '$set': {
+                        'summary': summary,
+                        'title': title
+                        }
+                }
+            )
+            
+            if result.matched_count > 0:
+                logger.info(f"Summary saved to database for session ID: {session_id}")
+            else:
+                # Try to find by the transcript content if session_id doesn't match transcript_id
+                result = user_auth.transcripts_collection.update_one(
+                    {
+                        'user_id': user_id,
+                        'transcript': transcript,
+
+                    },
+                    {
+                        '$set': {
+                            'summary': summary,
+                            'title': title,
+                            }
+                    }
+                )
+                if result.matched_count > 0:
+                    logger.info("Summary saved to database (matched by transcript content)")
+                else:
+                    logger.warning("Could not find matching transcript to update with summary")
+
+            # res = user_auth.update_transcript_title(
+            #     user_id=user_id,
+            #     transcript_id=session_id,
+            #     title=title
+            # )
+            # if res:
+            #     logger.info(f"Transcript title updated in database for session ID: {session_id}")
+            # else:
+            #     logger.warning(f"Failed to update transcript title in database for session ID: {session_id}")
+        except Exception as e:
+            logger.error(f"Error saving summary to database: {str(e)}")
     
     return jsonify({'summary': summary})
 
@@ -759,9 +958,19 @@ def ask_question():
         else:
             logger.info("Using transcript provided in request as fallback")
     
-    answer = answer_question(transcript, question)
+    response = answer_question(transcript, question)
+    answer = response['response']
+    usage_metadata = response['token_usage']
+    logger.info(f"Answer generated with token usage: {usage_metadata}")
+
     logger.info("Question answered successfully")
-    
+
+    record_api_call(session['user_id'], "QandA",
+                usage_metadata['total_token_count'],
+                usage_metadata['prompt_tokens'],
+                usage_metadata['response_tokens'],
+                QnA_MODEL
+            )
     return jsonify({'answer': answer})
 
 # For debugging - add a route to check session content
@@ -788,6 +997,7 @@ def get_session_cost(session_id):
         return jsonify({'error': 'Session not found'}), 404
     
     cost_summary = session_costs[session_id].get_summary()
+    print(cost_summary)
     return jsonify(cost_summary)
 
 # Add a route to get rate limit status
@@ -802,6 +1012,203 @@ def get_rate_limits():
     
     return jsonify(status)
 
+# Add authentication routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login page"""
+    # Check if already logged in
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # Add debugging output for auth process
+        print(f"Attempting login for: {email}")
+        
+        if not email or not password:
+            flash("Please enter both email and password", "danger")
+            return render_template('login.html')
+        
+        user, message = user_auth.authenticate_user(email, password)
+        
+        if user:
+            # Store user info in session
+            session['user_id'] = user['user_id']
+            session['username'] = user['username']
+            session['email'] = user['email']
+            session.permanent = True  # Use permanent session
+            
+            print(f"Login successful for {email}, user_id: {user['user_id']}")
+            print(f"Session data: {dict(session)}")
+            
+            flash("Login successful!", "success")
+            
+            # Redirect to the next page or index
+            next_page = request.args.get('next', url_for('index'))
+            return redirect(next_page)
+        else:
+            flash(message, "danger")
+    
+    return render_template('login.html')
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    """User signup page"""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Basic validation
+        if not username or not email or not password:
+            flash("Please fill in all required fields", "danger")
+            return render_template('signup.html')
+        
+        if password != confirm_password:
+            flash("Passwords do not match", "danger")
+            return render_template('signup.html')
+        
+        if len(password) < 8:
+            flash("Password must be at least 8 characters long", "danger")
+            return render_template('signup.html')
+        
+        # Register user
+        success, message = user_auth.register_user(username, email, password)
+        
+        if success:
+            flash("Account created successfully. Please log in.", "success")
+            return redirect(url_for('login'))
+        else:
+            flash(message, "danger")
+    
+    return render_template('signup.html')
+
+@app.route('/logout')
+def logout():
+    """Log user out"""
+    session.clear()
+    flash("You have been logged out", "success")
+    return redirect(url_for('login'))
+
+@app.route('/profile')
+@user_auth.login_required
+def profile():
+    """User profile page"""
+    user_id = session.get('user_id')
+    user_transcripts = user_auth.get_user_transcripts(user_id)
+    
+    return render_template('profile.html', 
+                           username=session.get('username'),
+                           email=session.get('email'),
+                           transcripts=user_transcripts)
+
+# Add a debug route to view session data
+@app.route('/debug/user_session')
+def debug_user_session():
+    """Debug route to see what's in the user session"""
+    if 'user_id' in session:
+        return jsonify({
+            'logged_in': True,
+            'user_id': session.get('user_id'),
+            'username': session.get('username'),
+            'email': session.get('email')
+        })
+    else:
+        return jsonify({
+            'logged_in': False,
+            'session_data': dict(session)
+        })
+
+# Add new API routes for transcript management
+@app.route('/api/transcripts', methods=['GET'])
+@user_auth.login_required
+def get_user_transcripts_api():
+    """API endpoint to get all user transcripts"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    transcripts = user_auth.get_user_transcripts(user_id)
+    
+    # Convert MongoDB documents to JSON-serializable format
+    result = []
+    for t in transcripts:
+        result.append({
+            'transcript_id': t.get('transcript_id', ''),
+            'title': t.get('title', ''),
+            'created_at': t.get('created_at').isoformat() if t.get('created_at') else None,
+            'has_summary': bool(t.get('summary')),
+            'preview': t.get('transcript', '')[:100] + '...' if len(t.get('transcript', '')) > 100 else t.get('transcript', '')
+        })
+    
+    return jsonify({'transcripts': result})
+
+@app.route('/api/transcript/<transcript_id>', methods=['GET'])
+@user_auth.login_required
+def get_transcript_by_id(transcript_id):
+    """API endpoint to get a specific transcript"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    transcript = user_auth.get_transcript(transcript_id, user_id)
+    
+    if not transcript:
+        return jsonify({'error': 'Transcript not found'}), 404
+    
+    # Return the transcript data
+    return jsonify({
+        'transcript_id': transcript.get('transcript_id', ''),
+        'title': transcript.get('title', ''),
+        'transcript': transcript.get('transcript', ''),
+        'summary': transcript.get('summary', ''),
+        'audioUrl': transcript.get('audioUrl', ''),
+        'created_at': transcript.get('created_at').isoformat() if transcript.get('created_at') else None,
+        'sessionId': transcript.get('transcript_id', '')  # Use transcript_id as session_id for consistency
+    })
+
+@app.route('/api/transcript/<transcript_id>/title', methods=['PUT'])
+@user_auth.login_required
+def update_transcript_title(transcript_id):
+    """API endpoint to update a transcript title"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    # Get the new title from request
+    data = request.json
+    if not data or 'title' not in data:
+        return jsonify({'error': 'No title provided'}), 400
+    
+    new_title = data['title']
+    
+    # Update the title in database
+    result: bool = user_auth.update_transcript_title(user_id, transcript_id, new_title)
+    
+    if result:
+        return jsonify({'success': True, 'title': new_title})
+    else:
+        return jsonify({'error': 'Failed to update title'}), 500
+
+@app.route('/api/transcript/<transcript_id>', methods=['DELETE'])
+@user_auth.login_required
+def delete_transcript(transcript_id):
+    """API endpoint to delete a transcript"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    # Delete the transcript
+    result = user_auth.delete_transcript(user_id, transcript_id)
+    
+    if result:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'error': 'Failed to delete transcript'}), 500
+
 if __name__ == '__main__':
     logger.info("Starting Flask application")
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
