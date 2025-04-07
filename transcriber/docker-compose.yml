@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongodb:
     image: mongo:6.0
@@ -13,6 +11,8 @@ services:
       - mongodb_data:/data/db
     restart: unless-stopped
     command: mongod --auth
+    networks:
+      - app_network
 
   mongo-express:
     image: mongo-express
@@ -29,6 +29,37 @@ services:
     depends_on:
       - mongodb
     restart: unless-stopped
+    networks:
+      - app_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transcriber-app
+    ports:
+      - "5002:5002"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_USER=transcriber
+      - MONGO_PASSWORD=transcriber_password
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+      - ./audio_cache:/app/audio_cache
+    networks:
+      - app_network
 
 volumes:
   mongodb_data:
+
+networks:
+  app_network:
+    driver: bridge

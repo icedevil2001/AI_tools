@@ -6,9 +6,35 @@ from flask import session, redirect, url_for, flash, request, g
 from pymongo import MongoClient
 import datetime
 
-# Initialize MongoDB connection
-client = MongoClient('mongodb://transcriber:transcriber_password@localhost:27017/')
-db = client.transcriber_db
+# Initialize MongoDB connection with environment variables for flexibility
+MONGO_HOST = os.environ.get('MONGO_HOST', 'localhost')
+MONGO_PORT = os.environ.get('MONGO_PORT', '27017')
+MONGO_USER = os.environ.get('MONGO_USER', 'transcriber')
+MONGO_PASSWORD = os.environ.get('MONGO_PASSWORD', 'transcriber_password')
+MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/"
+
+print(f"Connecting to MongoDB at: {MONGO_HOST}:{MONGO_PORT}")
+
+try:
+    client = MongoClient(MONGO_URI)
+    # Try to access the server info to test the connection
+    server_info = client.server_info()
+    print(f"Successfully connected to MongoDB version: {server_info.get('version', 'unknown')}")
+    db = client.transcriber_db
+except Exception as e:
+    print(f"Error connecting to MongoDB: {e}")
+    # Fallback to try localhost
+    if MONGO_HOST != 'localhost':
+        print("Trying to connect to localhost...")
+        try:
+            MONGO_URI = f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@localhost:{MONGO_PORT}/"
+            client = MongoClient(MONGO_URI)
+            db = client.transcriber_db
+            print("Successfully connected to MongoDB on localhost")
+        except Exception as e2:
+            print(f"Error connecting to MongoDB on localhost: {e2}")
+            raise e  # Raise the original error if fallback also fails
+
 users_collection = db.users
 transcripts_collection = db.transcripts
 

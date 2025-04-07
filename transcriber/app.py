@@ -31,6 +31,7 @@ try:
 except ImportError:
     print("ERROR: PyDub not installed. Please run: pip install pydub")
 
+print('starting app.py')
 TRANSCRIPTION_MODEL = "gemini-2.0-flash"  # Updated model name
 QnA_MODEL = "gemini-2.0-flash"  # Updated model name
 SUMMARY_MODEL = "gemini-2.0-flash"  # Updated model name
@@ -1211,4 +1212,4 @@ def delete_transcript(transcript_id):
 
 if __name__ == '__main__':
     logger.info("Starting Flask application")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
