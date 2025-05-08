@@ -177,3 +177,6 @@ vector_db/
 html2md
 
 **/.DS_Store
+
+poster_summary/posters/
+poster_summary/poster_summarys/
