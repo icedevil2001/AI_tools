@@ -310,7 +310,7 @@ if __name__ == "__main__":
     with st.sidebar:
         st.set_page_config(page_title="RAG Question Answer")
         uploaded_files = st.file_uploader(
-            "**📑 Upload PDF files for QnA**", type=["pdf"], accept_multiple_files=True
+            "**📑 Upload PDF files for QnA**    x", type=["pdf"], accept_multiple_files=True
         )
 
         process = st.button(

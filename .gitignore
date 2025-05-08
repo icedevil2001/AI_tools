@@ -177,6 +177,11 @@ vector_db/
 html2md
 
 **/.DS_Store
+*.lock
+*.log
+**/uploads/
+**/audio_cache
+**/db_backup/*
 
 poster_summary/posters/
 poster_summary/poster_summarys/

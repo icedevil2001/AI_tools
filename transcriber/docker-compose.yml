@@ -1,0 +1,65 @@
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: transcriber-mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=transcriber
+      - MONGO_INITDB_ROOT_PASSWORD=transcriber_password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+    command: mongod --auth
+    networks:
+      - app_network
+
+  mongo-express:
+    image: mongo-express
+    container_name: transcriber-mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_MONGODB_PORT=27017
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=transcriber
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=transcriber_password
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    networks:
+      - app_network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: transcriber-app
+    ports:
+      - "5002:5002"
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_USER=transcriber
+      - MONGO_PASSWORD=transcriber_password
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+      - ./audio_cache:/app/audio_cache
+    networks:
+      - app_network
+
+volumes:
+  mongodb_data:
+
+networks:
+  app_network:
+    driver: bridge
