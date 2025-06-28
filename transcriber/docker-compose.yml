@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:6.0
+    image: mongo:latest
     container_name: transcriber-mongodb
     environment:
       - MONGO_INITDB_ROOT_USERNAME=transcriber
@@ -49,7 +49,7 @@ services:
     env_file:
       - .env
     depends_on:
-      - mongodb
+      - mongo-express
     restart: unless-stopped
     volumes:
       - ./uploads:/app/uploads

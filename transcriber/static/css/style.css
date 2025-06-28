@@ -585,6 +585,7 @@ header p {
 
 /* Debug panel - can be removed in production */
 .debug-panel {
+ display: none; /* Hide the debug panel */
  position: fixed;
  bottom: 20px;
  left: 20px;
