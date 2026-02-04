@@ -1,0 +1,14 @@
+[project]
+name = "image-generator"
+version = "0.1.0"
+description = "Interactive web app for generating images from text using OpenAI's DALL·E API"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gradio>=4.0.0",
+    "openai>=1.0.0",
+    "pillow>=10.0.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.0"
+]

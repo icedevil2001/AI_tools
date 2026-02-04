@@ -183,3 +183,4 @@ html2md
 **/audio_cache
 **/db_backup/*
 
+*.png

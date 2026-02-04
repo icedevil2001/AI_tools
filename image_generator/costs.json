@@ -1,0 +1,92 @@
+{
+  "total_cost": 0.462,
+  "total_images": 9,
+  "sessions": [
+    {
+      "timestamp": "2025-07-20T22:02:03.615090",
+      "model": "dall-e-3",
+      "quality": "standard",
+      "size": "1024x1024",
+      "cost": 0.04,
+      "prompt": "an underwater palace made of coral and pearls"
+    },
+    {
+      "timestamp": "2025-07-20T22:02:25.517950",
+      "model": "dall-e-3",
+      "quality": "standard",
+      "size": "1024x1024",
+      "cost": 0.04,
+      "prompt": "an underwater palace made of coral and pearls"
+    },
+    {
+      "timestamp": "2025-07-20T22:19:27.670991",
+      "model": "dall-e-3",
+      "quality": "standard",
+      "size": "1024x1024",
+      "generation_cost": 0.04,
+      "analysis_cost": 0.002,
+      "total_cost": 0.042,
+      "prompt": "can you create line draw of the image below "
+    },
+    {
+      "timestamp": "2025-07-20T22:35:23.570934",
+      "model": "gpt-image-1",
+      "quality": "standard",
+      "size": "1024x1024",
+      "generation_cost": 0.04,
+      "analysis_cost": 0.0,
+      "total_cost": 0.04,
+      "prompt": "a steampunk airship flying over mountains"
+    },
+    {
+      "timestamp": "2025-07-20T22:54:47.805468",
+      "model": "gpt-image-1",
+      "quality": "standard",
+      "size": "1024x1024",
+      "generation_cost": 0.04,
+      "analysis_cost": 0.0,
+      "total_cost": 0.04,
+      "prompt": "Create an image of a beautiful French lady in Paris with dark hair, long legs, a beautiful long flow..."
+    },
+    {
+      "timestamp": "2025-07-20T22:56:15.488583",
+      "model": "gpt-image-1",
+      "quality": "standard",
+      "size": "1024x1024",
+      "generation_cost": 0.04,
+      "analysis_cost": 0.0,
+      "total_cost": 0.04,
+      "prompt": "Create an image of a beautiful French lady in Paris with dark hair, long legs, a beautiful long flow..."
+    },
+    {
+      "timestamp": "2025-07-20T23:00:32.299735",
+      "model": "gpt-image-1",
+      "quality": "standard",
+      "size": "1024x1024",
+      "generation_cost": 0.04,
+      "analysis_cost": 0.0,
+      "total_cost": 0.04,
+      "prompt": "a futuristic city floating in the clouds at sunset"
+    },
+    {
+      "timestamp": "2025-07-22T20:34:24.790731",
+      "model": "gpt-image-1",
+      "quality": "hd",
+      "size": "1792x1024",
+      "generation_cost": 0.14,
+      "analysis_cost": 0.0,
+      "total_cost": 0.14,
+      "prompt": "Please can you create a 3D enchanting image of an anthropomorphic woodland animal meditating in the ..."
+    },
+    {
+      "timestamp": "2025-07-22T20:35:47.202484",
+      "model": "gpt-image-1",
+      "quality": "standard",
+      "size": "1792x1024",
+      "generation_cost": 0.04,
+      "analysis_cost": 0.0,
+      "total_cost": 0.04,
+      "prompt": "Please can you create a 3D enchanting image of an anthropomorphic woodland animal meditating in the ..."
+    }
+  ]
+}
