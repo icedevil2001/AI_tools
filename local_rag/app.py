@@ -40,12 +40,13 @@ def load_topics(topics_file="topics.yaml"):
     if Path(topics_file).exists():
         with open(topics_file, "r") as f:
             return yaml.safe_load(f)
+        
     return ["General"]  # default topics if file doesn't exist
 
 def save_topics(topics, topics_file="topics.yaml"):
     """Save topics to a YAML file."""
     with open(topics_file, "w") as f:
-        yaml.safe_dump(topics, f)
+        yaml.safe_dump(list(set(topics)), f)
 
 
 def get_models(config: dict ):
@@ -361,9 +362,9 @@ if __name__ == "__main__":
         response = call_llm(
             api_key=LLM_API_KEY,
             model=selected_model,
-            context=relevant_text, 
-            base_url=base_url, 
-            prompt=prompt, 
+            context=relevant_text,
+            base_url=base_url,
+            prompt=prompt,
             system_prompt=SYSTEM_PROMPT)
         
         st.write_stream(response)

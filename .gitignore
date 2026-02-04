@@ -183,4 +183,6 @@ html2md
 **/audio_cache
 **/db_backup/*
 
+poster_summary/posters/
+poster_summary/poster_summarys/
 *.png
