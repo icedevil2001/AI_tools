@@ -1,494 +1,320 @@
+#!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.10"
-# dependencies = [
-#     "click",
-#     "google-genai",
-#     "openai",
-#     "python-dotenv",
-#     "markdown",     
-#     "pillow",       
-#     "pillow-heif",  
-# ]
+# dependencies = ["click","openai","python-dotenv","markdown","pillow","pillow-heif","loguru"]
 # ///
+"""Poster summarization CLI.
 
-from pathlib import Path
-import base64 
-from PIL import Image  
-import pillow_heif 
-pillow_heif.register_heif_opener()
-from dataclasses import dataclass
-import click
-from dotenv import load_dotenv
-import os
-from openai import OpenAI
-import markdown  
-import re 
-
-
-
-## https://platform.openai.com/docs/guides/images-vision?api-mode=responses&format=base64-encoded#gpt-4-1-mini-gpt-4-1-nano-o4-mini 
-#  https://ai.google.dev/gemini-api/docs/image-understanding 
-
-## markdown: https://python-markdown.github.io/reference/ 
-
-
-
-# system_prompt = """
-
-# # <<Title>>
-
-# ## 1. Summary
-# - Give a high-level overview of the poster’s scope and purpose.
-# - Break down the main sections or figures and summarize key points.
-
-# ## 2. Impact
-# - Explain the significance of the poster’s message or findings.
-# - Discuss potential applications, audience, or broader relevance.
-
-# ## 3. Limitations
-# - Identify any weaknesses or gaps in content or presentation.
-# - Suggest areas for improvement or future work.
-
-# ## 4. Main Takeaway
-# - State the single most important insight the viewer should remember.
-
-# ## 5. Keywords
-# - List 5–10 concise, relevant keywords or phrases.
-
-# ### Response Guidelines
-# - Use Markdown headings, bullet lists, and concise language.
-# - Do not include extraneous commentary or code.
-# - Ensure each section is clearly labeled and self-contained.
-# """
-
-
-# ### poster contents
-# extract all text from the poster image and include it in the report and include all sections from poster 
-
-
-system_prompt = """
-You are an expert at analyzing scientific or academic posters. Given a poster image, generate a clear, concise, and well-structured markdown report. Automatically extract and insert the title in place of <<Title>>.
-
-# <<Title>> 
-
-## Main Takeaway
-Identify the single most important message or piece of information conveyed by the poster.
-
-## Summary
-Provide a detailed and extensive summary of the poster's content, scope, and purpose.
-
-### High-Level Overview: 
-Describe the main topic and objectives of the poster.
-
-### Main Sections: 
-- Identify and summarize the main sections or figures of the poster.
-- Describe any important visual elements, such as graphs, charts, tables, or images, and their significance.
-
-## Impact
-Describe the significance of the poster's content and its potential impact on the field or audience.
-
-## Short commings 
-Describe any limitations or shortcomings of the poster's content, including areas for improvement or further research.
-
-## Keywords
-List relevant keywords that describe the poster's topic and content.
-
-
-# Output Format
-
-- Use markdown format for your response.
-- Summarize each section clearly and concisely.
-- Extract the title from the poster and replace <<Title>> with title from poster
+Clean implementation; previous corrupted fragments removed.
 """
 
+from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+import base64
+import re
+import os
+import sys
+import click
+from dotenv import load_dotenv
+from PIL import Image
+import pillow_heif  # type: ignore
+from loguru import logger
+import io
 
-env_path = Path(".env")
-if env_path.exists():
-    print(f"Loading environment variables from {env_path}")
-    load_dotenv(env_path)
-else:
-    print(
-        "No .env file found. Please enter your OpenAI API key—it will be kept in memory for this session only and discarded when the script exits. "
-        "To store your key permanently, create a .env file alongside this script containing:\n"
-        "OPENAI_API_KEY=<your_key>"
-    )
-    key_input = click.prompt("OpenAI API Key", hide_input=True)
-    os.environ["OPENAI_API_KEY"] = key_input
-    # raise FileNotFoundError(f"File {env_path} does not exist.")
+pillow_heif.register_heif_opener()
+load_dotenv()
 
-# api_key = os.getenv("GOOGLE_API_KEY")
-api_key = os.getenv("OPENAI_API_KEY")
-if not api_key:
-    raise ValueError("API key not found. Please set the OPENAI_API_KEY environment variable.")
-print(f"API Key: {api_key[:4]}***{api_key[-4:]}")  
+try:
+    import markdown  # type: ignore
+except ImportError:  # pragma: no cover
+    markdown = None  # type: ignore
+    logger.warning("Package 'markdown' not installed; HTML will show raw markdown inside <pre>.")
 
-# client = genai.Client(api_key=api_key)
-# client = openai.Client(api_key=api_key)
+try:
+    RESAMPLE_LANCZOS = Image.Resampling.LANCZOS  # Pillow >=9.1
+except AttributeError:  # pragma: no cover
+    # Minimal fallback: omit explicit resample if not available.
+    RESAMPLE_LANCZOS = None
 
-client = OpenAI(api_key=api_key)
+SYSTEM_PROMPT = """
+You are an expert at analyzing scientific or academic posters. Produce MARKDOWN with exactly these top-level sections:
 
+# <Title>
+## Analysis
+### Sections
+### Impact
+### Limitations
+### Main Takeaway
+### Keywords
+## Poster Contents
 
-
-class Img: 
-    def __init__(self, image_path: str):
-        self.image_path = Path(image_path)
-        if not self.image_path.exists():
-            raise FileNotFoundError(f"File {self.image_path} does not exist.")
-        self.image_path = self.image_path  if self.image_path.suffix.lower() == ".jpg" else self.convert_to_jpg()
-        
-        
-    def convert_to_jpg(self):
-        # Convert HEIC or other formats to JPEG via Pillow
-        jpg_filepath = self.image_path.with_suffix('.jpg')
-        img = Image.open(self.image_path)
-        img = img.convert('RGB')
-        img.save(jpg_filepath, 'JPEG')
-        return jpg_filepath
-    
-    def encode_image(self):
-        """Encode the image to base64 format."""
-        with open(self.image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
-        
-    def resize_image(self, max_edge: int = 1024):
-        """
-        Resize the image so that its longest edge is max_edge pixels.
-        Saves the resized image into the 'summary' folder and returns its Path.
-        """
-        img = Image.open(self.image_path)
-        width, height = img.size
-        ratio = max_edge / max(width, height)
-        if ratio < 1:
-            new_size = (int(width * ratio), int(height * ratio))
-            # Use LANCZOS filter for high-quality downsampling
-            img = img.resize(new_size)
-            img.save(self.image_path)
-        else:
-            resized_path = self.image_path
-        return resized_path
-    
+Instructions:
+- First line: extracted poster title as H1.
+- Under Analysis, synthesize insights (no verbatim copying) organized by the listed subheadings; omit a subheading if empty.
+- Under Poster Contents, provide raw transcription (verbatim text, headings, figure/table captions) with minimal formatting; preserve line breaks where practical.
+- If some text is unreadable use [UNREADABLE].
+- Do NOT add additional top-level headings; only the ones specified.
+- Avoid extraneous commentary. Output only the markdown.
+End with the Poster Contents section.
+"""
 
 @dataclass
 class Poster:
     image_path: Path
     summary: str = ""
-    
-    def __post_init__(self):
-        
-        if not self.image_path.exists():
-            raise FileNotFoundError(f"File {self.image_path} does not exist.")
-        self.image_path = self.image_path  if self.image_path.suffix.lower() == ".jpg" else self.convert_to_jpg()
-        
-    @property        
-    def encode_image(self):
-        """Encode the image to base64 format."""
-        with open(self.image_path, "rb") as image_file:
-            return base64.b64encode(image_file.read()).decode("utf-8")
 
-    def add_summary(self, summary):
-        """markdown format"""
-        self.summary = summary
-        
     @property
-    def title(self):
-        """Extract the title from the image filename."""
-        if self.summary:
-            return self.summary.split("\n", maxsplit=1)[0].strip().replace("#", "").strip()
-        return self.image_path.stem
-        
-    def convert_to_jpg(self):
-        jpg_filepath = self.image_path.with_suffix('.jpg')
-        img = Image.open(self.image_path)
-        img = img.convert('RGB')
-        img.save(jpg_filepath, 'JPEG')
-        return jpg_filepath
-    
-def resize_image(image_path, max_edge: int = 1024, resized_path: Path = None) -> Path:
-    """
-    Resize the image so that its longest edge is max_edge pixels.
-    Saves the resized image into the 'summary' folder and returns its Path.
-    """
-    img = Image.open(image_path)
-    width, height = img.size
-    ratio = max_edge / max(width, height)
-    if ratio < 1:
-        new_size = (int(width * ratio), int(height * ratio))
-        img = img.resize(new_size)
-        img.save(resized_path)
-    else:
-        resized_path = image_path
-    return resized_path
-    
-    
-    # def convert_heic_to_jpg(self, heic_filepath: Path, jpg_filepath: Path):
-    #     """
-    #     Convert HEIC image to JPEG format using Pillow.
-    #     """
-    #     img = Image.open(heic_filepath)
-    #     img = img.convert('RGB')
-    #     img.save(jpg_filepath, 'JPEG')
-    #     print(f"Converted {heic_filepath} to {jpg_filepath}")
-    #     return jpg_filepath
-        
+    def encode_image(self) -> str:
+        with open(self.image_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
 
-# client = OpenAI()
+    @property
+    def title(self) -> str:
+        if not self.summary:
+            return self.image_path.stem
+        first = self.summary.strip().splitlines()[0]
+        return first.lstrip("# ").strip() or self.image_path.stem
 
-# response = client.responses.create(
-#     model="gpt-4.1-nano",
-#     input=[
-#         {
-#             "role": "system",
-#             "content": [
-#                 {
-#                     "type": "input_text",
-#                     "text": "Please analyze this poster image and provide the following information in markdown format:\n\n## Detailed Summary\nProvide a comprehensive summary of the poster's content.\n\n## Main Takeaway\nWhat is the single most important message or piece of information conveyed by the poster?\n\n## Keywords\nList relevant keywords that describe the poster's topic and content\n",
-#                 }
-#             ],
-#         },
-#         {
-#             "id": "msg_681a556d36988192b73da03d5417fe900ad016031f9680d6",
-#             "role": "assistant",
-#             "content": [
-#                 {
-#                     "type": "output_text",
-#                     "text": "## Detailed Summary\nThe poster presents an illustrative and educational overview of a biological or medical topic, likely focusing on cellular or molecular processes. It features various diagrams and labeled illustrations highlighting different components, such as cellular structures, pathways, or mechanisms. The visual elements are organized to guide viewers through a step-by-step explanation of a specific process, emphasizing key points with annotations. The overall design aims to inform viewers about complex biological interactions or functions in a clear and accessible manner, possibly targeting students or professionals in science or healthcare fields.\n\n## Main Takeaway\nThe poster aims to elucidate a specific biological process or mechanism, providing insights into how cellular components interact or function within a system, ultimately enhancing understanding of the topic.\n\n## Keywords\n- Cell biology\n- Biological mechanism\n- Molecular pathway\n- Cellular structures\n- Illustration\n- Education\n- Science communication\n- Anatomy",
-#                 }
-#             ],
-#         },
-#     ],
-#     text={"format": {"type": "text"}},
-#     reasoning={},
-#     tools=[],
-#     temperature=1,
-#     max_output_tokens=2048,
-#     top_p=1,
-#     store=True,
-# )
-
-
-
-# def convert_folder_heic_to_jpg(folder_path):
-#     for filename in os.listdir(folder_path):
-#         if filename.lower().endswith((".heic", ".heif")):
-#             heic_filepath = os.path.join(folder_path, filename)
-#             jpg_filename = os.path.splitext(filename)[0] + ".jpg"
-#             jpg_filepath = os.path.join(folder_path, jpg_filename)
-#             convert_heic_to_jpg(heic_filepath, jpg_filepath)
-
-
-# html_template = """
-# <!DOCTYPE html>
-# <html lang="en">
-# <head>
-
-#     <meta charset="utf-8">
-#     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-#     <title>Poster Summary</title>
-# </head>
-# <body>
-#     <h1>Poster Summary</h1>
-#     <img src="data:image/jpeg;base64,{encoded_img}" alt="Poster Image" />
-#     <div id="content">{html_body}</div>
-# </body>
-# </html>
-# """
 
 def sanitize_title(title: str) -> str:
-    """
-    Sanitize the title by removing special characters and replacing spaces with underscores.
-    """
-    # Remove special characters and replace spaces with underscores
-    sanitized_title = re.sub(r'[^\w\s]+', '', title)
-    sanitized_title = re.sub(r'[:\'\"]+', '', sanitized_title)
-    sanitized_title = re.sub(r'\s+', '_', sanitized_title)
-    return sanitized_title
+    cleaned = re.sub(r"[^\w\s]+", "", title)
+    cleaned = re.sub(r"\s+", "_", cleaned)
+    return cleaned[:150] or "poster"
 
 
-def generate_poster_summary(openai_client: OpenAI, poster: Poster, model="gpt-4o-mini") -> str:
-    """
-    Generate a detailed summary of the poster image.
-
-    Args:
-        openai_client: OpenAI client
-        poster: Poster object containing the image path
-        model: OpenAI model to use (default: gpt-4o-mini)
-
-    Returns:
-        Generated summary text
-    """
-    
-    response = openai_client.chat.completions.create(
-        model=model,
-        messages=[
-            {
-                "role": "system",
-                "content": system_prompt,
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text", 
-                        "text": "Please analyze this poster image and provide structured insights following the guidelines above.",
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/jpeg;base64,{poster.encode_image}"
-                        }
-                    }
-                ],
-            }
-        ]
-    )
-    # print(f"Response: {response}")
-    poster.summary = response.choices[0].message.content 
-    # print(f"Response: {poster.summary}")
-    return response
+def resize_image(orig_path: str | Path, max_edge: int, resized_path: Path) -> Path:
+    orig_path = Path(orig_path)
+    with Image.open(orig_path) as img:
+        w, h = img.size
+        scale = max_edge / max(w, h)
+        if scale < 1:
+            new_size = (int(w * scale), int(h * scale))
+            if RESAMPLE_LANCZOS is not None:
+                img = img.resize(new_size, RESAMPLE_LANCZOS)
+            else:
+                img = img.resize(new_size)
+        img.convert("RGB").save(resized_path, "JPEG", quality=90)
+    logger.info(f"Resized image written: {resized_path}")
+    return resized_path
 
 
-def write_to_markdown(poster: Poster, output_path: str):
+def read_prompt_from_file(prompt_path: str) -> str:
     """
-    Write the poster summary to a markdown file.
+    Read the prompt from a markdown file.
     """
-    
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(f"![Poster Image]({poster.image_path.as_posix()})\n\n")
-        f.write(poster.summary)
-    return True
+    prompt_file = Path(prompt_path)
+    if not prompt_file.exists():
+        raise FileNotFoundError(f"Prompt file {prompt_file} does not exist.")
+    with open(prompt_file, "r", encoding="utf-8") as f:
+        prompt = f.read()
+    return prompt
 
 
 
 def write_to_html(poster: Poster, full_image_path: Path, html_path: str) -> bool:
-    """
-    Write the poster image and summary to a standalone HTML file.
+    """Write poster HTML with a collapsible 'Poster Contents' section.
+
+    Splits the model output at the first '## Poster Contents' heading (case-insensitive).
+    Everything before is treated as analysis/summary; the heading and remainder become
+    the raw transcription section.
     """
     try:
-        html_body = markdown.markdown(poster.summary.split("\n", maxsplit=1)[1].strip())
-        encoded_thumb = poster.encode_image
-        with open(full_image_path, 'rb') as f:
-            encoded_full = base64.b64encode(f.read()).decode('utf-8')
-        title = poster.title
-        html_content = f"""<!DOCTYPE html>
-<html lang=\"en\">
+        raw_md = poster.summary or ""
+        match = re.search(r"^##\s*Poster Contents.*$", raw_md, flags=re.MULTILINE | re.IGNORECASE)
+        if match:
+            analysis_md = raw_md[:match.start()].strip()
+            contents_md = raw_md[match.start():].strip()
+        else:
+            analysis_md = raw_md.strip()
+            contents_md = "## Poster Contents\n(No raw transcription section was produced.)"
+
+        lines = analysis_md.splitlines()
+        if lines and lines[0].startswith('# '):
+            title = lines[0][2:].strip()
+            analysis_body_md = '\n'.join(lines[1:]).strip()
+        else:
+            title = poster.title
+            analysis_body_md = analysis_md
+
+        if markdown:
+            analysis_html = markdown.markdown(analysis_body_md)
+            contents_html = markdown.markdown(contents_md)
+        else:
+            from html import escape
+            analysis_html = f"<pre>{escape(analysis_body_md)}</pre>"
+            contents_html = f"<pre>{escape(contents_md)}</pre>"
+
+        thumb_b64 = poster.encode_image
+        # Always convert original to JPEG for browser compatibility (HEIC not widely supported)
+        try:
+            with Image.open(full_image_path) as im_full:
+                buf = io.BytesIO()
+                im_full.convert('RGB').save(buf, format='JPEG', quality=95)
+                full_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        except Exception as ex:  # fallback direct bytes (may fail to display if HEIC)
+            logger.warning(f"Failed to transcode full image to JPEG ({ex}); embedding raw bytes.")
+            with open(full_image_path, 'rb') as fh:
+                full_b64 = base64.b64encode(fh.read()).decode('utf-8')
+
+        html_doc = f"""<!DOCTYPE html>
+<html lang='en'>
 <head>
-  <meta charset=\"utf-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>{title}</title>
-  <style>
-    body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; }}
-    h1, h2, h3 {{ color: #333; }}
-    img {{ max-width: 100%; height: auto; cursor: pointer; transition: transform 0.3s ease; }}
-    /* Modal styles */
-    #modal {{ display: none; position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }}
-    #modal img {{ max-width: 90%; max-height: 90%; }}
-  </style>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width,initial-scale=1.0'>
+    <title>{title}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }}
+        h1 {{ margin-top: 0; }}
+        img.poster-thumb {{ max-width: 100%; height: auto; cursor: pointer; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,.1); }}
+        details {{ margin: 1.5rem 0; }}
+        details > summary {{ cursor: pointer; font-weight: 600; background: #f5f5f5; padding: .6rem .8rem; border: 1px solid #ddd; border-radius: 4px; }}
+        .contents-wrapper {{ padding: 1rem; border: 1px solid #e0e0e0; border-top: 0; background: #fff; }}
+        #modal {{ display: none; position: fixed; z-index: 1000; inset: 0; background: rgba(0,0,0,.85); justify-content: center; align-items: center; }}
+        #modal img {{ max-width: 95%; max-height: 95%; }}
+        .meta-note {{ font-size: .78rem; color: #666; text-align: center; margin-top: .4rem; }}
+    </style>
 </head>
 <body>
-  <h1>{title}</h1>
-  <div>
-    <img id=\"poster-img\" src=\"data:image/jpeg;base64,{encoded_thumb}\" alt=\"Poster Image\" />
-  </div>
-  <div id=\"content\">{html_body}</div>
-  <!-- Modal for full-size image -->
-  <div id=\"modal\" onclick=\"this.style.display='none'\">
-    <img src=\"data:image/jpeg;base64,{encoded_full}\" alt=\"Poster Image Enlarged\" />
-  </div>
-  <script>
-    document.getElementById('poster-img').addEventListener('click', function() {{
-      document.getElementById('modal').style.display = 'flex';
-    }});
-  </script>
+    <h1>{title}</h1>
+    <div class='thumb-container'>
+        <img id='poster-img' class='poster-thumb' src='data:image/jpeg;base64,{thumb_b64}' alt='Poster Thumbnail'>
+        <div class='meta-note'>Click image to view full resolution</div>
+    </div>
+    <section id='analysis'>
+        {analysis_html}
+    </section>
+    <details id='raw-contents'>
+        <summary>Poster Contents (raw transcription)</summary>
+        <div class='contents-wrapper'>
+            {contents_html}
+        </div>
+    </details>
+    <div id='modal' onclick="this.style.display='none'">
+        <img src='data:image/jpeg;base64,{full_b64}' alt='Full Resolution Poster'>
+    </div>
+    <script>
+        document.getElementById('poster-img').addEventListener('click', () => {{
+            document.getElementById('modal').style.display = 'flex';
+        }});
+    </script>
 </body>
 </html>"""
-        html_file = Path(html_path)
-        html_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(html_file, "w", encoding="utf-8") as f:
-            f.write(html_content)
+        out_path = Path(html_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(html_doc, encoding='utf-8')
+        logger.info(f"Wrote HTML output to {out_path}")
         return True
-    except Exception as e:
-        print(f"Error writing HTML: {e}")
+    except (OSError, ValueError) as e:
+        logger.error(f"Failed writing HTML {html_path}: {e}")
         return False
 
 
-
-@click.command(context_settings=dict(
-    help_option_names=["-h", "--help"],
-    show_default=True)
+def format_output_with_agent(client, content: str, model: str = "gpt-5-nano") -> str:
+    """Optional second pass to clean markdown formatting."""
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "Format text into clean markdown; preserve headings, lists."},
+            {"role": "user", "content": content},
+        ],
     )
-@click.option("--image_path", "-i",
-    required=True, 
-    # default="/Users/priyesh.rughani/git/AI_tools/poster_summary/posters/IMG_1245.jpeg", 
-    help="Path to the poster image file.")
-
-@click.option(
-    "--output_dir", "-o",
-    default=None,
-    help="Output markdown file path. Defaults to image filename with .md extension.",
-)
-
-@click.option(
-    "--prefix", "-p",
-    default=None,
-    help="Prefix for the output markdown file name. Defaults to image filename.",
-)
-@click.option(
-    "--model", "-m",
-    default="gpt-4o-mini", 
-    help="OpenAI model to use for analysis."
-    
-)
-@click.option(
-    "--max_edge", "-e",
-    default=1024,
-    help="Maximum edge length for resizing the image. Default is 1024 pixels."
-)
-def main(image_path: str = None, output_dir: str = None, model: str = "gpt-4o-mini", prefix: str = None, max_edge: int = 1024):
-    """Analyze a poster image and generate a detailed summary."""
+    return resp.choices[0].message.content
 
 
+def ensure_openai_client():
+    from openai import OpenAI  # local import to avoid unused warning if not executed
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY not set; create .env or export variable.")
+    return OpenAI(api_key=api_key)
+
+
+def generate_poster_summary(client, poster: Poster, model: str, user_prompt: str, additional_formatting: bool) -> None:
+    """Call vision model to produce structured poster summary."""
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": [
+                {"type": "text", "text": user_prompt},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{poster.encode_image}"}},
+            ]},
+        ],
+    )
+    summary = resp.choices[0].message.content
+    if additional_formatting:
+        summary = format_output_with_agent(client, summary)
+    poster.summary = summary
+
+
+def write_to_markdown(poster: Poster, md_path: Path) -> None:
+    md_path.write_text(f"![Poster Image]({poster.image_path.name})\n\n{poster.summary}", encoding="utf-8")
+    logger.info(f"Markdown written: {md_path}")
+
+
+# (imports consolidated at top)
+
+
+@click.command(context_settings=dict(help_option_names=["-h", "--help"], show_default=True))
+@click.option("--image_path", "-i", required=True, help="Path to poster image (JPEG/PNG/HEIC).")
+@click.option("--output_dir", "-o", default=None, help="Output directory (default: CWD).")
+@click.option("--prefix", "-p", default=None, help="Filename prefix (default: derived from poster title).")
+@click.option("--model", "-m", default="gpt-4o-mini", help="OpenAI model (vision-capable).")
+@click.option("--max_edge", "-e", default=1024, help="Max edge length for resize.")
+@click.option("--prompt_file", "-f", default="prompt.md", help="User prompt file (optional).")
+@click.option("--additional_formatting", "-a", is_flag=True, default=False, help="Apply second formatting pass.")
+@click.option("--log_level", "-l", default="INFO", help="Logging level.")
+def cli(
+    image_path: str | None = None,
+    output_dir: str | None = None,
+    prefix: str | None = None,
+    model: str = "gpt-4o-mini",
+    max_edge: int = 1024,
+    prompt_file: str = "prompt.md",
+    additional_formatting: bool = False,
+    log_level: str = "INFO",
+):
+    """Analyze poster image and generate markdown + HTML outputs."""
+
+    logger.remove()
+    logger.add(sys.stderr, level=log_level.upper(), colorize=True,
+               format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{function}</cyan>:<yellow>{line}</yellow> - <level>{message}</level>")
+
+    out_dir = Path(output_dir) if output_dir else Path.cwd()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    logger.add(out_dir / "poster_summary.log", level="DEBUG", rotation="1 MB", retention=5)
+
+    if image_path is None:
+        raise SystemExit("--image_path is required")
     orig_path = Path(image_path)
-    if not output_dir:
-        output_dir = Path.cwd()
-    else:
-        output_dir = Path(output_dir)
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Output directory created: {output_dir}")
-    
-    resized_path = (
-        output_dir / "resized" / f"{orig_path.stem}_resized{orig_path.suffix}"
-    )
-    if not (output_dir / "resized").exists(): 
-        (output_dir / "resized").mkdir(parents=True, exist_ok=True)
-        print(f"Resized directory created: {(output_dir / 'resized')}")
+    if not orig_path.exists():
+        raise FileNotFoundError(f"Image file does not exist: {orig_path}")
 
-    resized_path = resize_image(image_path, max_edge=max_edge, resized_path=resized_path)
-    # raise ValueError("Testing image resize and conversion to jpg")
+    resized_dir = out_dir / "resized"
+    resized_dir.mkdir(parents=True, exist_ok=True)
+    resized_path = resized_dir / f"{orig_path.stem}_resized.jpg"
+    resized_path = resize_image(orig_path, max_edge=max_edge, resized_path=resized_path)
 
     poster = Poster(resized_path)
 
-    print(f"🧐 Analyzing poster: {image_path}")
-    print(f"🤖 Using model: {model}")
+    user_prompt = read_prompt_from_file(prompt_file) if Path(prompt_file).exists() else "Please analyze this poster following the system instructions."
+
+    client = ensure_openai_client()
+    generate_poster_summary(client, poster, model=model, user_prompt=user_prompt, additional_formatting=additional_formatting)
+
+    if prefix is None:
+        prefix = sanitize_title(poster.title)
+
+    md_path = out_dir / f"{prefix}.md"
+    write_to_markdown(poster, md_path)
+    html_path = out_dir / f"{prefix}.html"
+    write_to_html(poster, orig_path, str(html_path))
+
+    logger.success("Processing complete")
 
 
-    generate_poster_summary(client, poster, model)
-    if prefix == None:
-        # prefix = orig_path.stem
-        # prefix = poster.title.replace(" ", "_").replace("/", "_").replace("\\", "_")
-        prefix = poster.title
-        prefix = sanitize_title(prefix)
-        
-    output_path = Path(output_dir) / f"{prefix}.md"
-
-    if write_to_markdown(poster, output_path):
-        print(f"✅ Summary successfully written to {output_path}")
-    if write_to_html(poster, orig_path, output_path.with_suffix(".html")):
-        print(f"✅ HTML successfully written to {output_path.with_suffix('.html')}")
-
-
-
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    # Entry point; Click will parse CLI args from sys.argv
+    cli()
