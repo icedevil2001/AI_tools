@@ -185,4 +185,5 @@ html2md
 
 poster_summary/posters/
 poster_summary/poster_summarys/
+**/state/
 *.png
