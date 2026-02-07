@@ -8,19 +8,33 @@
 #   "lxml_html_clean==0.4.1",
 # ]
 # ///
+
+from __future__ import annotations
+
 """
 Fetch Medium articles via Playwright, convert to Markdown, and save to disk.
 Keeps a simple JSON state of previously processed URLs to avoid duplicates.
 """
 
-from __future__ import annotations
+# Example usage:
+# uv run --script medium_to_markdown.py \
+#   --manual-login \
+#   --save-storage-state \
+#   --urls "https://medium.com/data-science/crime-location-analysis-and-prediction-using-python-and-machine-learning-1d8db9c8b6e6"
+#
+# uv run --script medium_to_markdown.py \
+#   --reuse-session-only \
+#   --urls "https://medium.com/data-science/crime-location-analysis-and-prediction-using-python-and-machine-learning-1d8db9c8b6e6"
 
+import asyncio
 import hashlib
 import json
 import re
 import subprocess
 import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Iterable, List, Set
 from urllib.parse import urlparse
@@ -119,6 +133,23 @@ def filename_for(url: str, title: str | None) -> str:
 
 async def fetch_markdown(page, url: str, timeout_ms: int) -> tuple[str | None, str]:
     await page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+    # Medium sometimes shows an anti-bot interstitial; wait it out if it appears.
+    for _ in range(2):
+        try:
+            title = await page.title()
+        except Exception:
+            title = ""
+        if title and "just a moment" in title.lower():
+            try:
+                await page.wait_for_load_state("networkidle", timeout=timeout_ms)
+            except Exception:
+                pass
+            try:
+                await page.wait_for_selector("article", timeout=timeout_ms)
+            except Exception:
+                pass
+            continue
+        break
     try:
         await page.wait_for_selector("article", timeout=timeout_ms)
     except Exception:
@@ -135,6 +166,24 @@ async def fetch_markdown(page, url: str, timeout_ms: int) -> tuple[str | None, s
     summary_html = doc.summary(html_partial=True)
     extracted_title = doc.title() or title
     markdown = md(summary_html, heading_style="ATX")
+
+    lowered = (extracted_title or "").lower()
+    blocked = any(
+        token in lowered
+        for token in (
+            "just a moment",
+            "checking your browser",
+            "verify you are human",
+        )
+    )
+    if blocked or "verify you are human" in markdown.lower():
+        json_title, json_md = fetch_medium_json(url, timeout_ms)
+        if json_md:
+            return json_title or extracted_title, json_md
+        jina_title, jina_md = fetch_jina_fallback(url, timeout_ms)
+        if jina_md:
+            return jina_title or extracted_title, jina_md
+
     return extracted_title, markdown
 
 
@@ -175,6 +224,217 @@ def save_credentials(path: Path, email: str, password: str) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def parse_netscape_cookies(path: Path, domain_filter: str | None) -> List[dict]:
+    cookies: List[dict] = []
+    for raw in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("#") and not line.startswith("#HttpOnly_"):
+            continue
+        if line.startswith("#HttpOnly_"):
+            line = line[len("#HttpOnly_") :]
+            http_only = True
+        else:
+            http_only = False
+        parts = line.split("\t")
+        if len(parts) < 7:
+            continue
+        domain, _flag, path_val, secure_val, expires, name, value = parts[:7]
+        if domain_filter and not domain.endswith(domain_filter):
+            continue
+        try:
+            expires_ts = int(expires)
+        except ValueError:
+            expires_ts = -1
+        cookies.append(
+            {
+                "name": name,
+                "value": value,
+                "domain": domain,
+                "path": path_val or "/",
+                "expires": expires_ts if expires_ts > 0 else -1,
+                "httpOnly": http_only,
+                "secure": secure_val.lower() == "true",
+                "sameSite": "Lax",
+            }
+        )
+    return cookies
+
+
+def parse_json_cookies(path: Path, domain_filter: str | None) -> List[dict]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    cookies: List[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        domain = item.get("domain")
+        if not isinstance(domain, str):
+            continue
+        if domain_filter and not domain.endswith(domain_filter):
+            continue
+        name = item.get("name")
+        value = item.get("value")
+        if not isinstance(name, str) or not isinstance(value, str):
+            continue
+        path_val = item.get("path") if isinstance(item.get("path"), str) else "/"
+        http_only = bool(item.get("httpOnly"))
+        secure = bool(item.get("secure"))
+        same_site_raw = item.get("sameSite")
+        if isinstance(same_site_raw, str):
+            same_site_raw = same_site_raw.lower()
+        if same_site_raw in {"no_restriction", "none"}:
+            same_site = "None"
+        elif same_site_raw in {"strict"}:
+            same_site = "Strict"
+        else:
+            same_site = "Lax"
+        expires_val = item.get("expirationDate")
+        if isinstance(expires_val, (int, float)):
+            expires = int(expires_val)
+        else:
+            expires = -1
+        if item.get("session") is True:
+            expires = -1
+        cookies.append(
+            {
+                "name": name,
+                "value": value,
+                "domain": domain,
+                "path": path_val,
+                "expires": expires,
+                "httpOnly": http_only,
+                "secure": secure,
+                "sameSite": same_site,
+            }
+        )
+    return cookies
+
+
+def import_cookies_to_storage_state(
+    cookies_path: Path,
+    storage_state_path: Path,
+    domain_filter: str | None,
+    store_copy_path: Path | None,
+) -> None:
+    try:
+        raw = cookies_path.read_text(encoding="utf-8", errors="replace").lstrip()
+    except FileNotFoundError:
+        raise SystemExit(f"Cookie file not found: {cookies_path}")
+    if raw.startswith("[") or raw.startswith("{") or cookies_path.suffix.lower() == ".json":
+        cookies = parse_json_cookies(cookies_path, domain_filter=domain_filter)
+    else:
+        cookies = parse_netscape_cookies(cookies_path, domain_filter=domain_filter)
+    if not cookies:
+        raise SystemExit(
+            f"No cookies matched domain filter {domain_filter!r} in {cookies_path}."
+        )
+    names = sorted({c.get("name", "") for c in cookies if c.get("name")})
+    if names:
+        print(f"Imported cookies: {', '.join(names)}")
+    if "cf_clearance" not in names:
+        print("Warning: cf_clearance not present; Cloudflare may block access.")
+    if store_copy_path:
+        store_copy_path.parent.mkdir(parents=True, exist_ok=True)
+        store_copy_path.write_text(
+            cookies_path.read_text(encoding="utf-8", errors="replace"),
+            encoding="utf-8",
+        )
+    storage_state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"cookies": cookies, "origins": []}
+    storage_state_path.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def fetch_text_url(url: str, timeout_ms: int) -> str:
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/121.0.0.0 Safari/537.36"
+        )
+    }
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout_ms / 1000) as resp:
+        raw = resp.read()
+    return raw.decode("utf-8", errors="replace")
+
+
+def fetch_medium_json(url: str, timeout_ms: int) -> tuple[str | None, str | None]:
+    joiner = "&" if "?" in url else "?"
+    json_url = f"{url}{joiner}format=json"
+    try:
+        text = fetch_text_url(json_url, timeout_ms)
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        return None, None
+    if "while(1);" in text:
+        text = text.split("while(1);", 1)[-1]
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None, None
+
+    payload = data.get("payload") if isinstance(data, dict) else None
+    if not isinstance(payload, dict):
+        return None, None
+    value = payload.get("value")
+    if not isinstance(value, dict):
+        return None, None
+
+    title = value.get("title") if isinstance(value.get("title"), str) else None
+
+    content = value.get("content")
+    if not isinstance(content, dict):
+        return title, None
+    body_model = content.get("bodyModel")
+    if not isinstance(body_model, dict):
+        return title, None
+    paragraphs = body_model.get("paragraphs")
+    if not isinstance(paragraphs, list):
+        return title, None
+
+    lines: List[str] = []
+    for para in paragraphs:
+        if not isinstance(para, dict):
+            continue
+        text = para.get("text")
+        if not isinstance(text, str):
+            continue
+        text = text.strip()
+        if not text:
+            continue
+        if para.get("type") == 3:
+            lines.append(f"## {text}")
+        else:
+            lines.append(text)
+
+    if not lines:
+        return title, None
+    return title, "\n\n".join(lines).strip() + "\n"
+
+
+def fetch_jina_fallback(url: str, timeout_ms: int) -> tuple[str | None, str | None]:
+    jina_url = f"https://r.jina.ai/http://{url}"
+    try:
+        text = fetch_text_url(jina_url, timeout_ms)
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        return None, None
+    text = text.strip()
+    if not text:
+        return None, None
+    title = None
+    first_line = text.splitlines()[0].strip()
+    if first_line.startswith("# "):
+        title = first_line[2:].strip()
+    return title, text + "\n"
+
+
 async def maybe_login(
     page,
     login: bool,
@@ -190,15 +450,53 @@ async def maybe_login(
     await page.goto(login_url, wait_until="domcontentloaded", timeout=timeout_ms)
 
     if manual_login:
-        print("Please complete login in the browser window, then press Enter to continue...")
+        print(
+            "Complete login or any human-verification in the browser window. "
+            "Press Enter to continue, or just wait for the page to proceed automatically..."
+        )
+
+        start = time.monotonic()
+        input_task = None
+        if sys.stdin and sys.stdin.isatty():
+            loop = asyncio.get_running_loop()
+            input_task = loop.run_in_executor(None, sys.stdin.readline)
+
         try:
-            input()
-        except EOFError:
-            pass
-        try:
-            await page.wait_for_load_state("networkidle", timeout=timeout_ms)
-        except Exception:
-            pass
+            while True:
+                if input_task and input_task.done():
+                    break
+
+                try:
+                    title = await page.title()
+                except Exception:
+                    title = ""
+
+                title_lc = title.lower()
+                is_interstitial = any(
+                    token in title_lc
+                    for token in (
+                        "just a moment",
+                        "checking your browser",
+                        "verify you are human",
+                    )
+                )
+
+                # Auto-continue once we are past the interstitial or the URL changed.
+                if not is_interstitial and page.url != login_url:
+                    break
+                try:
+                    if not is_interstitial and await page.locator("article").count() > 0:
+                        break
+                except Exception:
+                    pass
+
+                if (time.monotonic() - start) * 1000 > timeout_ms:
+                    break
+
+                await page.wait_for_timeout(1000)
+        finally:
+            if input_task and not input_task.done():
+                input_task.cancel()
         return
     try:
         await page.get_by_role("button", name=re.compile(r"sign in with email", re.I)).click()
@@ -259,7 +557,18 @@ async def run(
     save_storage_state: bool,
     headed: bool,
     reuse_session_only: bool,
+    user_data_dir: str | None,
+    channel: str | None,
+    import_cookies: str | None,
+    import_domain: str | None,
+    import_cookies_store: str | None,
+    debug_network: bool,
 ) -> None:
+    if manual_login and not login:
+        login = True
+    if manual_login and not headed:
+        headed = True
+
     maybe_install_browsers(install_browsers)
 
     urls: List[str] = []
@@ -293,6 +602,33 @@ async def run(
     skipped = 0
 
     storage_state_path = Path(storage_state)
+    if import_cookies:
+        domain_filter = import_domain
+        if domain_filter and domain_filter.strip().lower() in {"", "none", "*", "all"}:
+            domain_filter = None
+        store_path = Path(import_cookies_store) if import_cookies_store else None
+        import_cookies_to_storage_state(
+            Path(import_cookies),
+            storage_state_path,
+            domain_filter=domain_filter,
+            store_copy_path=store_path,
+        )
+        reuse_session_only = True
+        login = False
+    elif import_cookies_store:
+        stored_path = Path(import_cookies_store)
+        if stored_path.exists():
+            domain_filter = import_domain
+            if domain_filter and domain_filter.strip().lower() in {"", "none", "*", "all"}:
+                domain_filter = None
+            import_cookies_to_storage_state(
+                stored_path,
+                storage_state_path,
+                domain_filter=domain_filter,
+                store_copy_path=None,
+            )
+            reuse_session_only = True
+            login = False
     storage_state_exists = storage_state_path.exists()
     storage_state_arg = str(storage_state_path) if storage_state_exists else None
 
@@ -300,9 +636,28 @@ async def run(
         raise SystemExit(f"Storage state not found at {storage_state}. Run once with --save-storage-state.")
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=not headed)
-        context = await browser.new_context(storage_state=storage_state_arg)
+        if user_data_dir:
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir=user_data_dir,
+                headless=not headed,
+                channel=channel,
+            )
+            browser = context.browser
+        else:
+            browser = await p.chromium.launch(headless=not headed, channel=channel)
+            context = await browser.new_context(storage_state=storage_state_arg)
         page = await context.new_page()
+
+        if debug_network:
+            def log_response(resp):
+                try:
+                    url = resp.url
+                    status = resp.status
+                    if "graphql" in url:
+                        print(f"[graphql] {status} {url}")
+                except Exception:
+                    pass
+            context.on("response", log_response)
 
         if not reuse_session_only:
             await maybe_login(
@@ -400,6 +755,35 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"], show_default=True)
     is_flag=True,
     help="Require existing storage state and skip any login attempt.",
 )
+@click.option(
+    "--user-data-dir",
+    help="Use a persistent browser profile directory (helps pass bot checks).",
+)
+@click.option(
+    "--channel",
+    help="Playwright browser channel (e.g. 'chrome', 'msedge').",
+)
+@click.option(
+    "--import-cookies",
+    help="Path to Netscape cookies.txt to seed storage state.",
+)
+@click.option(
+    "--import-domain",
+    default="medium.com",
+    show_default=True,
+    help="Only import cookies whose domain ends with this value. Use 'none' to import all.",
+)
+@click.option(
+    "--import-cookies-store",
+    default="state/medium_cookies.txt",
+    show_default=True,
+    help="Cache a copy of the Netscape cookies.txt for reuse.",
+)
+@click.option(
+    "--debug-network",
+    is_flag=True,
+    help="Log GraphQL response status codes.",
+)
 def main(
     urls: str | None,
     input_path: str | None,
@@ -420,6 +804,12 @@ def main(
     save_storage_state: bool,
     headed: bool,
     reuse_session_only: bool,
+    user_data_dir: str | None,
+    channel: str | None,
+    import_cookies: str | None,
+    import_domain: str | None,
+    import_cookies_store: str | None,
+    debug_network: bool,
 ) -> None:
     import asyncio
 
@@ -444,6 +834,12 @@ def main(
             save_storage_state=save_storage_state,
             headed=headed,
             reuse_session_only=reuse_session_only,
+            user_data_dir=user_data_dir,
+            channel=channel,
+            import_cookies=import_cookies,
+            import_domain=import_domain,
+            import_cookies_store=import_cookies_store,
+            debug_network=debug_network,
         )
     )
 
