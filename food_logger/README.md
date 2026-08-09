@@ -47,14 +47,25 @@ cp .env.example .env.local   # then fill it in
 The migrations create a dedicated `foodlog` schema, so they will not collide
 with anything already in your Supabase project.
 
+**Easiest — no CLI, no database password:** paste
+[`supabase/apply_all.sql`](supabase/apply_all.sql) into the SQL Editor at
+`https://supabase.com/dashboard/project/<your-project-ref>/sql/new` and run it.
+That is the four migrations concatenated, wrapped in a transaction, plus two
+things only needed against a live project: a `notify pgrst, 'reload schema'` so
+PostgREST picks up the new schema, and a profile backfill for any account that
+already exists.
+
+**Or with the CLI:**
+
 ```bash
 supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
-Then in the Supabase dashboard, under **Settings → API → Exposed schemas**, add
-`foodlog`. PostgREST will not serve the tables until you do, and the symptom is
-an unhelpful 404 on every query.
+Either way, then go to **Settings → API → Exposed schemas** in the dashboard
+and add `foodlog`. PostgREST will not serve the tables until you do, and the
+symptom is an unhelpful 404 on every query that looks exactly like the
+migration having failed.
 
 ### 3. Environment
 
@@ -89,7 +100,15 @@ npm run typecheck
 npm run build
 ```
 
-Timing views, against a database with the migrations applied:
+SQL structure, without needing a database — catches an unbalanced transaction,
+a table shipped without RLS, or a view missing `security_invoker`:
+
+```bash
+python3 supabase/tests/validate_sql.py
+```
+
+Timing views, against a database with the migrations applied (or paste the file
+into the SQL Editor):
 
 ```bash
 psql "$DATABASE_URL" -f supabase/tests/timing_views.sql
