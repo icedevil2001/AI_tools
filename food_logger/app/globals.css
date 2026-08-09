@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: theme("colors.cream");
+  color: theme("colors.ink");
+  /* Respect the iOS notch and home indicator. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Inputs below 16px make iOS Safari zoom on focus, which is jarring mid-entry. */
+input,
+select,
+textarea,
+button {
+  font-size: max(16px, 1rem);
+}
