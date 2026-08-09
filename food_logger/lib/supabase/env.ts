@@ -4,8 +4,7 @@
  * an opaque "Invalid API key" from a downstream service.
  */
 
-function required(name: string): string {
-  const value = process.env[name];
+function required(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
       `Missing required environment variable ${name}. Copy .env.example to .env.local and fill it in.`,
@@ -14,10 +13,18 @@ function required(name: string): string {
   return value;
 }
 
-/** Safe to reach the browser. */
+/**
+ * Safe to reach the browser. Next.js inlines `NEXT_PUBLIC_*` vars into the
+ * client bundle by statically replacing exact `process.env.NEXT_PUBLIC_X`
+ * expressions at build time -- a dynamic `process.env[name]` lookup can't be
+ * inlined and always reads as undefined in the browser, so these must
+ * reference `process.env.<NAME>` directly rather than going through a
+ * name-keyed helper.
+ */
 export const publicEnv = {
-  supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL"),
-  supabaseAnonKey: () => required("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+  supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL),
+  supabaseAnonKey: () =>
+    required("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
 };
 
 /**
@@ -29,7 +36,7 @@ function serverOnly(name: string): string {
   if (typeof window !== "undefined") {
     throw new Error(`${name} is server-only and must never be read in the browser.`);
   }
-  return required(name);
+  return required(name, process.env[name]);
 }
 
 export const serverEnv = {
