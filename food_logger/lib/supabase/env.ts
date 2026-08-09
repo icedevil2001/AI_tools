@@ -6,12 +6,26 @@
 
 function required(name: string): string {
   const value = process.env[name];
-  if (!value) {
+
+  // Absent and present-but-blank need different advice. Copying .env.example
+  // leaves every key defined with an empty value, so "set it" is the useful
+  // instruction there, not "create the file" -- which the person has already
+  // done and will waste time re-checking.
+  if (value === undefined) {
     throw new Error(
-      `Missing required environment variable ${name}. Copy .env.example to .env.local and fill it in.`,
+      `Missing required environment variable ${name}. ` +
+        `Copy food_logger/.env.example to food_logger/.env.local and fill it in.`,
     );
   }
-  return value;
+  if (value.trim() === "") {
+    throw new Error(
+      `Environment variable ${name} is set but empty. ` +
+        `Add its value in food_logger/.env.local, then restart the dev server ` +
+        `(Next.js only reads environment variables at startup).`,
+    );
+  }
+
+  return value.trim();
 }
 
 /** Safe to reach the browser. */

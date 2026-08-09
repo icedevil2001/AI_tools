@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { publicEnv } from "@/lib/supabase/env";
 
 /**
  * Refreshes the Supabase session on every request and gates the app behind
@@ -14,9 +15,16 @@ const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/error"];
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // Read through publicEnv rather than process.env directly. Middleware runs on
+  // every request, so it is the first thing to fail on a misconfigured
+  // deployment and should give the clearest error in the codebase. Using
+  // `process.env.X!` instead hands undefined to createServerClient, which then
+  // reports "Your project's URL and Key are required" -- true, but it names
+  // neither the variable nor the file, sending you to the Supabase dashboard
+  // when the fix is in .env.local.
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    publicEnv.supabaseUrl(),
+    publicEnv.supabaseAnonKey(),
     {
       cookies: {
         getAll() {

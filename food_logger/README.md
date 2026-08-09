@@ -127,6 +127,34 @@ the check that cannot be skipped.
 **Test on a real phone, ideally an iPhone**, not just desktop devtools — HEIC
 photos and the camera capture path only show their problems there.
 
+## Troubleshooting first run
+
+**"Your project's URL and Key are required to create a Supabase client!"**
+An environment variable is missing or blank. Newer builds replace this with a
+message naming the variable; if you still see the Supabase wording, the code is
+out of date. Check which values are actually set — this prints names and
+lengths, never values:
+
+```bash
+grep -v '^#' .env.local | grep -v '^$' | \
+  awk -F= '{ v=substr($0, index($0,"=")+1); printf "%-32s %s\n", $1, (length(v)==0 ? "EMPTY" : "set (" length(v) " chars)") }'
+```
+
+Copying `.env.example` gives you every key with an *empty* value, which fails
+exactly like a missing one. Note also that `.env.local` must sit in
+`food_logger/` beside `package.json` — Next.js does not look in the repository
+root — and that Next reads environment variables only at startup, so restart
+the dev server after editing it.
+
+**404 on every query, though sign-in works.** `foodlog` is not in **Settings →
+API → Exposed schemas**, or the migrations have not been applied.
+
+**Magic link opens but never signs you in.** The origin is missing from
+**Authentication → URL Configuration → Redirect URLs**; it needs the full
+callback path, e.g. `http://localhost:3000/auth/callback`.
+
+**`next: command not found`.** `npm install` has not run in this directory.
+
 ## How it is put together
 
 ```
