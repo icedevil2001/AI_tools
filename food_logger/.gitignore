@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+build/
+.env
+.env.local
+.env*.local
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+.DS_Store
+
+# The repository root .gitignore excludes `lib/` and `*.png` for the Python
+# projects alongside this one. Both are real source here -- lib/ holds the
+# application code and the icons are required for the PWA install prompt -- so
+# re-include them for this directory only.
+!lib/
+!public/icons/
+!public/icons/*.png
