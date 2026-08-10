@@ -17,3 +17,4 @@ next-env.d.ts
 !lib/
 !public/icons/
 !public/icons/*.png
+.env*

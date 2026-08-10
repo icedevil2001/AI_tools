@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { publicEnv, serverEnv } from "./env";
@@ -17,7 +17,10 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
+      // Annotated explicitly: createServerClient's deprecated overload is
+      // declared first and has no setAll, so TS finds no contextual type for
+      // this parameter and would infer `any`.
+      setAll(cookiesToSet: Parameters<SetAllCookies>[0]) {
         try {
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);
