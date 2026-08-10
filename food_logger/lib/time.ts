@@ -65,3 +65,19 @@ export function formatDateTime(iso: string): string {
 export function formatTime(iso: string): string {
   return timeFormat.format(new Date(iso));
 }
+
+/**
+ * Sortable local date/time for spreadsheet export -- "Mon, 9 Aug" reads well
+ * in the app but sorts and parses badly in Excel/Sheets.
+ */
+export function formatCsvDate(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+export function formatCsvTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
