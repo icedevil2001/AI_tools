@@ -68,7 +68,12 @@ export default async function HistoryPage() {
 
   return (
     <main className="mx-auto w-full max-w-md px-5 pb-28 pt-8">
-      <h1 className="text-xl font-semibold text-ink">History</h1>
+      <div className="flex items-baseline justify-between gap-3">
+        <h1 className="text-xl font-semibold text-ink">History</h1>
+        <a href="/api/export" className="shrink-0 text-sm font-medium underline">
+          Export CSV
+        </a>
+      </div>
       <p className="mt-1 text-sm text-ink/60">Most recent first.</p>
 
       {entries.length === 0 ? (
