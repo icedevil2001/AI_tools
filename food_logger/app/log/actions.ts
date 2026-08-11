@@ -70,18 +70,30 @@ export async function saveMeal(input: SaveMealInput): Promise<SaveMealResult> {
   }
 
   if (extraction) {
-    // Written with the service role because clients have no insert policy on
-    // ai_extractions -- an audit record of what the model said should not be
-    // forgeable from the browser.
-    const admin = createServiceRoleClient();
-    const { error: auditError } = await admin.from("ai_extractions").insert({
-      meal_id: meal.id,
-      model: extraction.model,
-      raw: extraction.raw ?? {},
-    });
-    // A failed audit write must not lose the meal the user just logged.
-    if (auditError) {
-      console.error("[saveMeal] failed to write ai_extractions:", auditError.message);
+    // The audit row is strictly secondary to the meal, which is already saved
+    // by this point. Everything here is inside try/catch because
+    // createServiceRoleClient() *throws* when SUPABASE_SERVICE_ROLE_KEY is
+    // missing or blank -- guarding only the insert's error result would let
+    // that exception escape and report failure for a meal that was in fact
+    // written, prompting the user to log it again and create a duplicate.
+    try {
+      // Written with the service role because clients have no insert policy on
+      // ai_extractions -- an audit record of what the model said should not be
+      // forgeable from the browser.
+      const admin = createServiceRoleClient();
+      const { error: auditError } = await admin.from("ai_extractions").insert({
+        meal_id: meal.id,
+        model: extraction.model,
+        raw: extraction.raw ?? {},
+      });
+      if (auditError) {
+        console.error("[saveMeal] failed to write ai_extractions:", auditError.message);
+      }
+    } catch (error) {
+      console.error(
+        "[saveMeal] could not write the extraction audit row; the meal itself saved fine:",
+        (error as Error).message,
+      );
     }
   }
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getSiteUrl } from "@/lib/site-url";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,10 +15,14 @@ export default function LoginPage() {
 
     const supabase = createClient();
     const next = new URLSearchParams(window.location.search).get("next") ?? "/log";
+    // getSiteUrl() rather than window.location.origin: Vercel gives every
+    // deployment a new hostname, which can never be on Supabase's Redirect URLs
+    // allowlist, and an unlisted value is silently replaced with the project's
+    // Site URL instead of being rejected.
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        emailRedirectTo: `${getSiteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
 

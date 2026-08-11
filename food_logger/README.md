@@ -47,14 +47,25 @@ cp .env.example .env.local   # then fill it in
 The migrations create a dedicated `foodlog` schema, so they will not collide
 with anything already in your Supabase project.
 
+**Easiest — no CLI, no database password:** paste
+[`supabase/apply_all.sql`](supabase/apply_all.sql) into the SQL Editor at
+`https://supabase.com/dashboard/project/<your-project-ref>/sql/new` and run it.
+That is the four migrations concatenated, wrapped in a transaction, plus two
+things only needed against a live project: a `notify pgrst, 'reload schema'` so
+PostgREST picks up the new schema, and a profile backfill for any account that
+already exists.
+
+**Or with the CLI:**
+
 ```bash
 supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
-Then in the Supabase dashboard, under **Settings → API → Exposed schemas**, add
-`foodlog`. PostgREST will not serve the tables until you do, and the symptom is
-an unhelpful 404 on every query.
+Either way, then go to **Settings → API → Exposed schemas** in the dashboard
+and add `foodlog`. PostgREST will not serve the tables until you do, and the
+symptom is an unhelpful 404 on every query that looks exactly like the
+migration having failed.
 
 ### 3. Environment
 
@@ -89,7 +100,15 @@ npm run typecheck
 npm run build
 ```
 
-Timing views, against a database with the migrations applied:
+SQL structure, without needing a database — catches an unbalanced transaction,
+a table shipped without RLS, or a view missing `security_invoker`:
+
+```bash
+python3 supabase/tests/validate_sql.py
+```
+
+Timing views, against a database with the migrations applied (or paste the file
+into the SQL Editor):
 
 ```bash
 psql "$DATABASE_URL" -f supabase/tests/timing_views.sql
@@ -107,6 +126,34 @@ the check that cannot be skipped.
 
 **Test on a real phone, ideally an iPhone**, not just desktop devtools — HEIC
 photos and the camera capture path only show their problems there.
+
+## Troubleshooting first run
+
+**"Your project's URL and Key are required to create a Supabase client!"**
+An environment variable is missing or blank. Newer builds replace this with a
+message naming the variable; if you still see the Supabase wording, the code is
+out of date. Check which values are actually set — this prints names and
+lengths, never values:
+
+```bash
+grep -v '^#' .env.local | grep -v '^$' | \
+  awk -F= '{ v=substr($0, index($0,"=")+1); printf "%-32s %s\n", $1, (length(v)==0 ? "EMPTY" : "set (" length(v) " chars)") }'
+```
+
+Copying `.env.example` gives you every key with an *empty* value, which fails
+exactly like a missing one. Note also that `.env.local` must sit in
+`food_logger/` beside `package.json` — Next.js does not look in the repository
+root — and that Next reads environment variables only at startup, so restart
+the dev server after editing it.
+
+**404 on every query, though sign-in works.** `foodlog` is not in **Settings →
+API → Exposed schemas**, or the migrations have not been applied.
+
+**Magic link opens but never signs you in.** The origin is missing from
+**Authentication → URL Configuration → Redirect URLs**; it needs the full
+callback path, e.g. `http://localhost:3000/auth/callback`.
+
+**`next: command not found`.** `npm install` has not run in this directory.
 
 ## How it is put together
 
@@ -150,6 +197,32 @@ without asserting the causal one.
 ## Deploying
 
 Vercel: point it at the `food_logger` directory, add the environment variables,
-deploy. Then add the deployed URL to Supabase under **Authentication → URL
-Configuration → Redirect URLs**, including `/auth/callback` — magic links will
-fail to complete without it.
+deploy.
+
+### Magic links and changing domains
+
+Vercel mints a new hostname for every deployment, which interacts badly with how
+Supabase validates redirects. When `emailRedirectTo` does not match an entry in
+the Redirect URLs allowlist, Supabase does **not** report an error — it silently
+substitutes the project's **Site URL**. The symptom is a sign-in link that
+returns you to an old domain, with nothing indicating why.
+
+Two things prevent it:
+
+**Set `NEXT_PUBLIC_SITE_URL` on Vercel's Production environment only.** The app
+resolves its public origin through `lib/site-url.ts`, preferring that value, then
+Vercel's stable production domain, then the per-deployment hostname, then
+`window.location.origin`. Leaving it unset on Preview means preview deployments
+sign in against themselves rather than throwing you to production mid-test.
+
+**Add all three Redirect URLs** under **Authentication → URL Configuration**:
+
+```
+http://localhost:3000/**
+https://<your-production-domain>/**
+https://*-<your-team-slug>.vercel.app/**
+```
+
+The wildcard is the one that matters long-term — without it, every future
+preview deployment reintroduces this bug. Set **Site URL** to your stable
+production origin too, since that is the value Supabase falls back to.
