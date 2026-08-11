@@ -29,7 +29,7 @@ The schema is designed so each can be added without a destructive migration.
 ## Stack
 
 Next.js 15 (App Router) + TypeScript + Tailwind, installable as a PWA.
-Supabase for Postgres, Auth (magic link) and photo Storage. Vision via
+Supabase for Postgres, Auth (email + password) and photo Storage. Vision via
 OpenRouter.
 
 ## Setup
@@ -149,10 +149,6 @@ the dev server after editing it.
 **404 on every query, though sign-in works.** `foodlog` is not in **Settings →
 API → Exposed schemas**, or the migrations have not been applied.
 
-**Magic link opens but never signs you in.** The origin is missing from
-**Authentication → URL Configuration → Redirect URLs**; it needs the full
-callback path, e.g. `http://localhost:3000/auth/callback`.
-
 **`next: command not found`.** `npm install` has not run in this directory.
 
 ## How it is put together
@@ -199,30 +195,9 @@ without asserting the causal one.
 Vercel: point it at the `food_logger` directory, add the environment variables,
 deploy.
 
-### Magic links and changing domains
+### Adding an account
 
-Vercel mints a new hostname for every deployment, which interacts badly with how
-Supabase validates redirects. When `emailRedirectTo` does not match an entry in
-the Redirect URLs allowlist, Supabase does **not** report an error — it silently
-substitutes the project's **Site URL**. The symptom is a sign-in link that
-returns you to an old domain, with nothing indicating why.
-
-Two things prevent it:
-
-**Set `NEXT_PUBLIC_SITE_URL` on Vercel's Production environment only.** The app
-resolves its public origin through `lib/site-url.ts`, preferring that value, then
-Vercel's stable production domain, then the per-deployment hostname, then
-`window.location.origin`. Leaving it unset on Preview means preview deployments
-sign in against themselves rather than throwing you to production mid-test.
-
-**Add all three Redirect URLs** under **Authentication → URL Configuration**:
-
-```
-http://localhost:3000/**
-https://<your-production-domain>/**
-https://*-<your-team-slug>.vercel.app/**
-```
-
-The wildcard is the one that matters long-term — without it, every future
-preview deployment reintroduces this bug. Set **Site URL** to your stable
-production origin too, since that is the value Supabase falls back to.
+There is no self-serve sign-up page. Create the account directly in
+**Authentication → Users** in the Supabase dashboard — set the email, a
+password, and confirm the email — then sign in at `/login` with those
+credentials.

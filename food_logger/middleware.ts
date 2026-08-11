@@ -10,7 +10,7 @@ import { publicEnv } from "@/lib/supabase/env";
  * session, so adding a new page cannot accidentally expose data by forgetting a
  * guard. Failing closed is the right default for a medical diary.
  */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/error"];
+const PUBLIC_PATHS = ["/login"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -58,8 +58,7 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    // Preserve where they were heading so a magic link opened later lands in
-    // the right place.
+    // Preserve where they were heading so signing in lands back on it.
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
