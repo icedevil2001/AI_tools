@@ -197,6 +197,32 @@ without asserting the causal one.
 ## Deploying
 
 Vercel: point it at the `food_logger` directory, add the environment variables,
-deploy. Then add the deployed URL to Supabase under **Authentication → URL
-Configuration → Redirect URLs**, including `/auth/callback` — magic links will
-fail to complete without it.
+deploy.
+
+### Magic links and changing domains
+
+Vercel mints a new hostname for every deployment, which interacts badly with how
+Supabase validates redirects. When `emailRedirectTo` does not match an entry in
+the Redirect URLs allowlist, Supabase does **not** report an error — it silently
+substitutes the project's **Site URL**. The symptom is a sign-in link that
+returns you to an old domain, with nothing indicating why.
+
+Two things prevent it:
+
+**Set `NEXT_PUBLIC_SITE_URL` on Vercel's Production environment only.** The app
+resolves its public origin through `lib/site-url.ts`, preferring that value, then
+Vercel's stable production domain, then the per-deployment hostname, then
+`window.location.origin`. Leaving it unset on Preview means preview deployments
+sign in against themselves rather than throwing you to production mid-test.
+
+**Add all three Redirect URLs** under **Authentication → URL Configuration**:
+
+```
+http://localhost:3000/**
+https://<your-production-domain>/**
+https://*-<your-team-slug>.vercel.app/**
+```
+
+The wildcard is the one that matters long-term — without it, every future
+preview deployment reintroduces this bug. Set **Site URL** to your stable
+production origin too, since that is the value Supabase falls back to.
