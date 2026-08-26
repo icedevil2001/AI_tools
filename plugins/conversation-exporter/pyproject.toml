@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conversation-exporter"
+version = "0.1.0"
+description = "Dependency-free normalized conversation archive foundation"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+conversation-exporter = "conversation_exporter.cli:main"

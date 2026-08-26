@@ -1,0 +1,18 @@
+{
+  "name": "conversation-exporter",
+  "version": "0.1.0",
+  "description": "Export redacted Codex sessions and bounded ChatGPT captures",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Conversation Exporter",
+    "shortDescription": "Export Codex and bounded ChatGPT conversations.",
+    "longDescription": "Conversation Exporter validates, redacts, archives, and verifies bounded Codex sessions and authenticated-browser ChatGPT captures.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": ["local-files", "archive-export"],
+    "defaultPrompt": "Confirm an archive destination and help me dry-run or export a bounded Codex or ChatGPT conversation."
+  }
+}

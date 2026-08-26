@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "conversation": {
+    "id": "fixture-incremental",
+    "title": "Synthetic incremental",
+    "source": "chatgpt",
+    "entries": []
+  },
+  "checkpoints": [],
+  "errors": []
+}

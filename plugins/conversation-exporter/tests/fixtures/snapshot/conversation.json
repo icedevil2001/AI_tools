@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "conversation": {
+    "id": "fixture-snapshot",
+    "title": "Synthetic snapshot",
+    "source": "codex",
+    "entries": []
+  },
+  "checkpoints": [],
+  "errors": []
+}
