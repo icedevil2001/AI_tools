@@ -1,0 +1,709 @@
+{
+    "name": "Public Health Documents Overview",
+    "children": [
+        {
+            "name": "Infectious Disease Surveillance & Outbreak Response",
+            "children": [
+                {
+                    "name": "Occurrence of norovirus and other viral gastroenteritis pathogens in sporadic Medically Attended Acute Gastroenteritis Kaiser Permanente Northwest members, 2023-2024",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The study highlights the ongoing occurrence of norovirus and other viral pathogens as significant contributors to acute gastroenteritis in a specific cohort, underscoring the need for continued monitoring and preventive measures within the community."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster presents research on the incidence of norovirus and other viral pathogens associated with medically attended acute gastroenteritis among Kaiser Permanente Northwest members from late 2023 to October 2024. It details the methodology used to gather data, including participant enrollment and the timeline of the study, which spanned from November 2023 to October 2024. Key results include the identification of viral pathogens in positive samples, with specific attention to the variations in prevalence among different age groups, locations, and over time. The poster includes graphs and charts that illustrate the frequency and types of pathogens detected, as well as phylogenetic analysis to understand the genetic makeup of norovirus strains."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Norovirus"
+                                },
+                                {
+                                    "name": "Gastroenteritis"
+                                },
+                                {
+                                    "name": "Viral pathogens"
+                                },
+                                {
+                                    "name": "Kaiser Permanente"
+                                },
+                                {
+                                    "name": "Epidemiology"
+                                },
+                                {
+                                    "name": "Public health"
+                                },
+                                {
+                                    "name": "Phylogenetic analysis"
+                                },
+                                {
+                                    "name": "Acute gastroenteritis"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1245_resized.md"
+                },
+                {
+                    "name": "Genomic Diversity, Antibiotic Resistance, and Stress Adaptation of Salmonella Isolates: Insights from a Four-Year Surveillance Study in New Hampshire",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The most important message conveyed by the poster is that genomic surveillance is crucial for understanding the genetic diversity, antibiotic resistance, and stress response of Salmonella, ultimately aiding public health efforts to manage and mitigate risks associated with this pathogen."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster presents findings from a genomic surveillance study of 684 Salmonella isolates collected over four years (2020-2023) in New Hampshire. It emphasizes the importance of genomic analysis in understanding the genetic diversity and antibiotic resistance of Salmonella, which poses a significant public health risk. Key elements of the research include:"
+                                },
+                                {
+                                    "name": "Introduction"
+                                },
+                                {
+                                    "name": "Highlights Salmonella's status as a major public health concern, emphasizing the need for effective genomic surveillance to monitor this pathogen and its resistance patterns."
+                                },
+                                {
+                                    "name": "Materials and Methods"
+                                },
+                                {
+                                    "name": "Discusses the use of paired-end FASTQ files from various sources, processed using tools such as NCBI accessioning, and various software for analysis (e.g., Python, R). The methodology focuses on whole-genome sequencing and bioinformatics to assess genetic variations and relationships among isolates."
+                                },
+                                {
+                                    "name": "Results"
+                                },
+                                {
+                                    "name": "Presents findings on genetic relationships among isolates, variations in antibiotic resistance, and stress adaptations. The analysis shows a robust correlation between genetic diversity and resistance mechanisms."
+                                },
+                                {
+                                    "name": "Significance"
+                                },
+                                {
+                                    "name": "Underlines the role of genomic surveillance in tracking Salmonella dynamics and aiding public health interventions."
+                                },
+                                {
+                                    "name": "Acknowledgements"
+                                },
+                                {
+                                    "name": "Recognizes support from cooperative agreements and institutions involved in the study."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Genomic Surveillance"
+                                },
+                                {
+                                    "name": "Salmonella"
+                                },
+                                {
+                                    "name": "Antibiotic Resistance"
+                                },
+                                {
+                                    "name": "Bioinformatics"
+                                },
+                                {
+                                    "name": "Public Health"
+                                },
+                                {
+                                    "name": "Whole-Genome Sequencing"
+                                },
+                                {
+                                    "name": "Isolate Diversity"
+                                },
+                                {
+                                    "name": "Stress Adaptation"
+                                },
+                                {
+                                    "name": "New Hampshire"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1241_resized.md"
+                },
+                {
+                    "name": "Rare case of septicemia caused by Salmonella enterica serotype Gaminara linked to exposure to a pet bearded dragon",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The key message conveyed by the poster is the identification of a rare Salmonella Gaminara infection linked to a pet, emphasizing the necessity for enhanced awareness and understanding of zoonotic disease transmission from reptiles to humans."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster discusses a rare case of septicemia resulting from exposure to Salmonella enterica serotype Gaminara, which was linked to a pet bearded dragon. The introduction explains that salmonellosis can be contracted from reptiles, with bearded dragons being potential carriers. Methodologically, the study employed a standardized questionnaire to gather information on the patient's symptoms and risk factors. Clinical and microbiological assessments confirmed the presence of the bacteria."
+                                },
+                                {
+                                    "name": "The case report details an adolescent presenting with serious symptoms including septicemia, which prompted further testing. Blood and stool samples were collected, leading to the identification of Salmonella in both. Advanced techniques such as whole genome sequencing (WGS) were utilized to analyze the bacterial strains present, revealing multiple strains in the patient's test samples. The significance of the study lies in demonstrating the importance of WGS in tracing the source of infection and implementing public health interventions."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Salmonella enterica"
+                                },
+                                {
+                                    "name": "Septicemia"
+                                },
+                                {
+                                    "name": "Bearded dragon"
+                                },
+                                {
+                                    "name": "Zoonotic disease"
+                                },
+                                {
+                                    "name": "Whole genome sequencing"
+                                },
+                                {
+                                    "name": "Bacteriology"
+                                },
+                                {
+                                    "name": "Public health"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1240_resized.md"
+                },
+                {
+                    "name": "Rapid Detection and Response to a Local B. melitensis Outbreak in North Carolina",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The most important message conveyed by the poster is the necessity of rapid detection and response measures for effectively managing B. melitensis outbreaks to safeguard public health through well-coordinated laboratory testing and risk assessment approaches."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster outlines the methods and findings related to the rapid detection and response to an outbreak of *Brucella melitensis* in North Carolina. It includes background information on the disease caused by *B. melitensis*, which can lead to zoonotic infections. The poster describes sentinel laboratory testing protocols, risk assessments for laboratory exposure, and recommendations for handling potential exposure. Key figures illustrate transmission pathways, testing results, and molecular analysis using reference testing from the North Carolina State Laboratory of Public Health (NCSLPH) and the Centers for Disease Control and Prevention (CDC). The conclusion emphasizes the importance of timely identification and effective response strategies to manage outbreaks and protect public health."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Brucella melitensis"
+                                },
+                                {
+                                    "name": "Outbreak response"
+                                },
+                                {
+                                    "name": "Sentinel laboratory testing"
+                                },
+                                {
+                                    "name": "Risk assessment"
+                                },
+                                {
+                                    "name": "Public health safety"
+                                },
+                                {
+                                    "name": "Molecular analysis"
+                                },
+                                {
+                                    "name": "North Carolina"
+                                },
+                                {
+                                    "name": "Laboratory testing protocols"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1238_resized.md"
+                },
+                {
+                    "name": "Applying a Sample Size Calculation Framework to Evaluate and Improve SARS-CoV-2 Variant Surveillance in Massachusetts",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "Utilizing the phylo-samp framework allows for improved understanding and management of sample size requirements in viral surveillance, thereby enhancing detection and response capabilities for SARS-CoV-2 variants."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster presents research conducted by Z. Thompson and colleagues, focusing on improving surveillance of SARS-CoV-2 variants in Massachusetts. The study uses the phylo-samp framework to determine the necessary sample size for effective variant detection, addressing challenges related to variant prevalence and the need for confidence in results."
+                                },
+                                {
+                                    "name": "### Background"
+                                },
+                                {
+                                    "name": "The Massachusetts Department of Public Health monitors SARS-CoV-2 variants and their prevalence."
+                                },
+                                {
+                                    "name": "Accurate sampling is necessary to enhance surveillance and respond to variant changes."
+                                },
+                                {
+                                    "name": "### Objectives"
+                                },
+                                {
+                                    "name": "To establish desired prevalence thresholds for variant detection and calculate the confidence in discovering variants at various prevalence levels."
+                                },
+                                {
+                                    "name": "### Methods"
+                                },
+                                {
+                                    "name": "Data were collected from state submissions, utilizing the R package phylo-samp."
+                                },
+                                {
+                                    "name": "Sampling was conducted on a weekly basis with analyses of detection ratios and estimations of sample sizes based on observed variants."
+                                },
+                                {
+                                    "name": "### Results"
+                                },
+                                {
+                                    "name": "The research found that consistent weekly sampling improved detection confidence."
+                                },
+                                {
+                                    "name": "Various graphs depict sample size needed for different prevalence targets and confidence levels."
+                                },
+                                {
+                                    "name": "### Conclusions"
+                                },
+                                {
+                                    "name": "The framework proved successful in assessing surveillance needs."
+                                },
+                                {
+                                    "name": "Recommendations include adjustments to sampling strategies in response to variant prevalence dynamics."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "SARS-CoV-2"
+                                },
+                                {
+                                    "name": "Variant Surveillance"
+                                },
+                                {
+                                    "name": "Sample Size Calculation"
+                                },
+                                {
+                                    "name": "phylo-samp Framework"
+                                },
+                                {
+                                    "name": "Public Health"
+                                },
+                                {
+                                    "name": "Massachusetts"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1237_resized.md"
+                }
+            ]
+        },
+        {
+            "name": "Laboratory Methods & Efficiency",
+            "children": [
+                {
+                    "name": "Enhancement of Carbapenemase Producing Organism Colonization Screening Workflow: Decreasing Time, Increasing Data, and Maximizing Resource Capabilities",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The poster emphasizes that the enhanced CPO screening workflow significantly reduces reporting times while increasing the volume and reliability of screening data, thus improving patient management and control of antibiotic resistance."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster outlines enhancements to the screening workflow for Carbapenemase Producing Organisms (CPO) in a laboratory setting, highlighting a structured approach to improve efficiency and resource utilization. Key points include:"
+                                },
+                                {
+                                    "name": "Introduction"
+                                },
+                                {
+                                    "name": "Describes the importance of timely detection of CPOs to manage antibiotic resistance, stressing that traditional methods were too slow."
+                                },
+                                {
+                                    "name": "Methods"
+                                },
+                                {
+                                    "name": "Details the Wadsworth Center's CPO screening process, illustrating the workflow from specimen collection to reporting results. It employs rapid PCR techniques to screen for specific CPO genes."
+                                },
+                                {
+                                    "name": "Data Analysis"
+                                },
+                                {
+                                    "name": "Presents graphs showing the turnaround time for screening from 2018 to 2023, indicating improvements in efficiency and cost. It also outlines the contributions of pre-analytical, analytical, and post-analytical phases to overall turnaround time."
+                                },
+                                {
+                                    "name": "Conclusions"
+                                },
+                                {
+                                    "name": "Summarizes that the optimized workflow enables rapid reporting of results, often within 24 hours, compared to previous methods taking several days."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Carbapenemase"
+                                },
+                                {
+                                    "name": "Screening Workflow"
+                                },
+                                {
+                                    "name": "Antimicrobial Resistance"
+                                },
+                                {
+                                    "name": "Workflow Optimization"
+                                },
+                                {
+                                    "name": "PCR Techniques"
+                                },
+                                {
+                                    "name": "Turnaround Time"
+                                },
+                                {
+                                    "name": "Laboratory Efficiency"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1244_resized.md"
+                },
+                {
+                    "name": "Implementation of Illumina Clarity LIMS: Experiences and Perspectives from the NC Public Health Lab",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The primary message of the poster is that implementing Clarity LIMS has significantly improved the efficiency, data management, and accuracy of sample tracking at the North Carolina Public Health Lab, enabling better public health outcomes."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster discusses the implementation of the Illumina Clarity Laboratory Information Management System (LIMS) at the North Carolina State Laboratory of Public Health. It details various aspects such as the project's background, methodologies for integrating LIMS, results obtained, and significance. Key points include:"
+                                },
+                                {
+                                    "name": "Abstract"
+                                },
+                                {
+                                    "name": "Outlines the purpose of implementing Clarity LIMS to enhance sample processing and tracking capabilities."
+                                },
+                                {
+                                    "name": "Introduction"
+                                },
+                                {
+                                    "name": "Describes the importance of LIMS in managing sequencing data and streamlining workflows."
+                                },
+                                {
+                                    "name": "Methods"
+                                },
+                                {
+                                    "name": "Provides insight into the steps taken to integrate samples and track projects within the LIMS."
+                                },
+                                {
+                                    "name": "Results"
+                                },
+                                {
+                                    "name": "Highlights successful integration achieved through Clarity LIMS, emphasizing improvements in efficiency and data tracking."
+                                },
+                                {
+                                    "name": "Significance"
+                                },
+                                {
+                                    "name": "Discusses the benefits of LIMS in reducing human error and ensuring data integrity."
+                                },
+                                {
+                                    "name": "Challenges"
+                                },
+                                {
+                                    "name": "Mentions potential issues related to software updates and integration with existing systems."
+                                },
+                                {
+                                    "name": "Acknowledgments** and **Resources"
+                                },
+                                {
+                                    "name": "Acknowledges contributors and provides additional resources for further information."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Illumina"
+                                },
+                                {
+                                    "name": "Clarity LIMS"
+                                },
+                                {
+                                    "name": "Sample Tracking"
+                                },
+                                {
+                                    "name": "Public Health"
+                                },
+                                {
+                                    "name": "Laboratory Information Management"
+                                },
+                                {
+                                    "name": "Data Integration"
+                                },
+                                {
+                                    "name": "Workflow Efficiency"
+                                },
+                                {
+                                    "name": "Human Error Reduction"
+                                },
+                                {
+                                    "name": "Sequencing Data"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1243_resized.md"
+                },
+                {
+                    "name": "Measurement of BHA, t-BHQ, and phase II metabolites (t-BHQ-glucuronide and \u2013sulfate) in serum by LC-MS/MS",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The study successfully validates an LC-MS/MS method for accurately measuring BHA and its metabolites in serum, which is crucial for monitoring food safety and animal health."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster presents research focused on developing and validating an LC-MS/MS method to measure BHA and its metabolites in serum. The objective was to optimize the extraction and quantification processes for these compounds, which are prevalent in various food products and can affect animal health. The introduction outlines the relevance of BHA and its metabolites, particularly in food safety contexts. The method employed includes a liquid-liquid extraction (LLE) procedure to prepare serum samples, and the results demonstrate successful validation of this method for clinical and spiked samples. Key findings include optimized quantification parameters and validation of the extraction process, as shown through standard curves and analytical precision data. Discussion points include potential limitations and future directions for further studies, particularly involving beta-glucuronidase and sulfatase."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "BHA"
+                                },
+                                {
+                                    "name": "LC-MS/MS"
+                                },
+                                {
+                                    "name": "Metabolites"
+                                },
+                                {
+                                    "name": "Serum Analysis"
+                                },
+                                {
+                                    "name": "Food Safety"
+                                },
+                                {
+                                    "name": "Extraction Procedure"
+                                },
+                                {
+                                    "name": "Validation"
+                                },
+                                {
+                                    "name": "Toxicology"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1236_resized.md"
+                }
+            ]
+        },
+        {
+            "name": "Newborn Screening",
+            "children": [
+                {
+                    "name": "Enhancement of Newborn Screening Reporting Interpretations for Severe Combined Immunodeficiency (SCID) in North Carolina",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The most important message conveyed by this poster is that through systematic improvements in reporting and follow-up processes, newborn screening for SCID in North Carolina has become more effective, helping to ensure timely interventions for affected infants."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster presents research on improving newborn screening methods for Severe Combined Immunodeficiency (SCID) in North Carolina. It outlines a timeline for the implementation of newborn screening (NBS) for SCID, noting that it was introduced in 2017 using lab-developed tests to measure T-cell receptor excision circles (TRECs) and ribonuclease P (RNAse P). By 2021, the screening methods were further developed, and reporting protocols were revised to ensure better population data use."
+                                },
+                                {
+                                    "name": "Key initiatives were discussed that include:"
+                                },
+                                {
+                                    "name": "Addition of abnormal urgent interpretations."
+                                },
+                                {
+                                    "name": "Strategies based on gestational age to refine screenings."
+                                },
+                                {
+                                    "name": "Updated algorithms for managing follow-up recommendations."
+                                },
+                                {
+                                    "name": "Results illustrated in the form of graphs show trends in TREC values over time, indicating that adjustments to the initial algorithm led to increased follow-up reports for abnormal cases. This showcases a more tailored and efficient approach to dealing with SCID detection."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Newborn Screening"
+                                },
+                                {
+                                    "name": "Severe Combined Immunodeficiency (SCID)"
+                                },
+                                {
+                                    "name": "TREC"
+                                },
+                                {
+                                    "name": "Quality Improvement"
+                                },
+                                {
+                                    "name": "Screening Algorithm"
+                                },
+                                {
+                                    "name": "Public Health"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1242_resized.md"
+                }
+            ]
+        },
+        {
+            "name": "Environmental & Occupational Health",
+            "children": [
+                {
+                    "name": "BERYLLIUM EXPOSURE AND WORKPLACE MEDICAL SURVEILLANCE",
+                    "children": [
+                        {
+                            "name": "Main Takeaway",
+                            "children": [
+                                {
+                                    "name": "The most important message conveyed by the poster is that regular medical surveillance and early detection are crucial for protecting workers from the health risks associated with beryllium exposure."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Detailed Summary",
+                            "children": [
+                                {
+                                    "name": "The poster outlines critical information about beryllium, a lightweight, highly toxic metal used in various industries, including aerospace and electronics. It discusses beryllium's properties, health risks associated with exposure, and the importance of medical surveillance for workers exposed to the substance. Key points include:"
+                                },
+                                {
+                                    "name": "Characteristics of Beryllium"
+                                },
+                                {
+                                    "name": "Highlighting its lightweight nature and applications in various fields, such as aerospace and nuclear energy."
+                                },
+                                {
+                                    "name": "Health Risks"
+                                },
+                                {
+                                    "name": "Emphasizes the dangers of beryllium exposure, which can lead to serious lung conditions, notably Chronic Beryllium Disease (CBD) and Beryllium Sensitization (BeS)."
+                                },
+                                {
+                                    "name": "Medical Surveillance"
+                                },
+                                {
+                                    "name": "Details the necessity of regular medical check-ups to detect early symptoms and sensitization to beryllium through the BeLPT test."
+                                },
+                                {
+                                    "name": "Risk Factors"
+                                },
+                                {
+                                    "name": "Notes the estimated number of workers at risk and emphasizes the need for workplace medical surveillance."
+                                },
+                                {
+                                    "name": "Prevention Strategies"
+                                },
+                                {
+                                    "name": "Provides strategies for reducing exposure and ensuring health monitoring."
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Keywords",
+                            "children": [
+                                {
+                                    "name": "Beryllium"
+                                },
+                                {
+                                    "name": "Exposure"
+                                },
+                                {
+                                    "name": "Medical Surveillance"
+                                },
+                                {
+                                    "name": "Chronic Beryllium Disease (CBD)"
+                                },
+                                {
+                                    "name": "Beryllium Sensitization (BeS)"
+                                },
+                                {
+                                    "name": "BeLPT test"
+                                },
+                                {
+                                    "name": "Workplace safety"
+                                },
+                                {
+                                    "name": "Health risks"
+                                }
+                            ]
+                        }
+                    ],
+                    "file": "IMG_1239_resized.md"
+                }
+            ]
+        }
+    ]
+}

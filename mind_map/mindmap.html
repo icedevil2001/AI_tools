@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Public Health Documents Mind Map</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            fill: #999;
+            stroke: steelblue;
+            stroke-width: 3px;
+        }
+
+        .node text {
+            font: 12px sans-serif;
+        }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Public Health Documents Mind Map</h1>
+
+    <p>Click on nodes to expand/collapse. Click on document titles to simulate linking to the document.</p>
+
+    <div id="tree"></div>
+
+    <script src="mindmap.js"></script>
+
+</body>
+
+</html>

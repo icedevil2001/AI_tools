@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1.0'>
+<title>{title}</title>
+<style>
+    body {
+            {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            line-height: 1.5;
+        }
+    }
+
+    h1 {
+            {
+            margin-top: 0;
+        }
+    }
+
+    img.poster-thumb {
+            {
+            max-width: 100%;
+            height: auto;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .1);
+        }
+    }
+
+    details {
+            {
+            margin: 1.5rem 0;
+        }
+    }
+
+    details>summary {
+            {
+            cursor: pointer;
+            font-weight: 600;
+            background: #f5f5f5;
+            padding: .6rem .8rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    }
+
+    .contents-wrapper {
+            {
+            padding: 1rem;
+            border: 1px solid #e0e0e0;
+            border-top: 0;
+            background: #fff;
+        }
+    }
+
+    #modal {
+            {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            inset: 0;
+            background: rgba(0, 0, 0, .85);
+            justify-content: center;
+            align-items: center;
+        }
+    }
+
+    #modal img {
+            {
+            max-width: 95%;
+            max-height: 95%;
+        }
+    }
+
+    .meta-note {
+            {
+            font-size: .78rem;
+            color: #666;
+            text-align: center;
+            margin-top: .4rem;
+        }
+    }
+</style>
+</head>
+
+<body>
+<h1>{title}</h1>
+<div class='thumb-container'>
+    <img id='poster-img' class='poster-thumb' src='data:image/jpeg;base64,{thumb_b64}' alt='Poster Thumbnail'>
+    <div class='meta-note'>Click image to view full resolution</div>
+</div>
+<section id='analysis'>
+    {analysis_html}
+</section>
+<details id='raw-contents'>
+    <summary>Poster Contents (raw transcription)</summary>
+    <div class='contents-wrapper'>
+        {contents_html}
+    </div>
+</details>
+<div id='modal' onclick="this.style.display='none'">
+    <img src='data:image/jpeg;base64,{full_b64}' alt='Full Resolution Poster'>
+</div>
+<script>
+    document.getElementById('poster-img').addEventListener('click', () => {
+        {
+            document.getElementById('modal').style.display = 'flex';
+        }
+    });
+</script>
+</body>
+
+</html>

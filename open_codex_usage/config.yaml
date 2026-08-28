@@ -1,0 +1,33 @@
+hosts: []
+  # Add remote SSH hosts here when needed:
+  # - hostname: sfprom04
+  # - hostname: sfprom03
+  # user, key_path, and port are optional when hostname is an SSH alias in ~/.ssh/config
+  # Do not add local/None as SSH hosts; local collection is configured below.
+paths:
+  - ~/.codex/sessions
+  - ~/.codex/archived_sessions
+
+local:
+  enabled: true
+  # hostname is optional; defaults to the local machine hostname
+  # hostname: local-dev
+  # paths is optional; defaults to the shared paths above
+  # paths:
+  #   - ~/.codex/sessions
+  #   - ~/.codex/archived_sessions
+
+storage:
+  type: parquet
+  path: ./data/usage.parquet
+
+model_cost:
+  url: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+
+credit_mapping:
+  path: ./data/credit_mapping.json
+
+credit_limit:
+  weekly_limit: 2500
+  end_of_week: Friday, 16:50
+  roll_over: true
